@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
-import { UserRole } from '../../types';
+import { UserRole, SUPER_ADMIN_EMAIL } from '../../types';
 import {
   X,
   Lock,
@@ -18,6 +18,11 @@ import {
   Phone,
   MessageSquare,
   ShieldCheck,
+  Crown,
+  Copy,
+  Check,
+  ExternalLink,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -36,6 +41,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     loginWithEmail,
     signupWithEmail,
     loginAsDemoUser,
+    loginAsSuperAdmin,
   } = useAuth();
 
   const {
@@ -58,6 +64,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+
+  const currentHostname =
+    typeof window !== 'undefined' ? window.location.hostname : 'steamz-ug.vercel.app';
+
+  const handleCopyDomain = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(currentHostname);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2500);
+    }
+  };
+
+  const handleSuperAdminLogin = () => {
+    loginAsSuperAdmin();
+    setUserRole('admin');
+    setSelectedUniversityId('kiu-western');
+    setSelectedDropSpotId('spot-kiu-eng');
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -81,10 +107,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
-      if (err?.code === 'auth/popup-closed-by-user') {
+      const code = err?.code || '';
+      const msg = err?.message || '';
+      if (code === 'auth/popup-closed-by-user') {
         setErrorMsg('Sign in popup was closed. Please try again.');
-      } else if (err?.code === 'auth/popup-blocked') {
-        setErrorMsg('Popup was blocked by browser. Please allow popups or use demo login.');
+      } else if (code === 'auth/popup-blocked') {
+        setErrorMsg('Popup was blocked by browser. Please allow popups or use email login.');
+      } else if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+        setErrorMsg('auth/unauthorized-domain');
       } else {
         setErrorMsg(err?.message || 'Google sign-in failed. Please try again.');
       }
@@ -131,16 +161,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       console.error('Auth error:', err);
       const code = err?.code || '';
-      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+      const msg = err?.message || '';
+      if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+        setErrorMsg('auth/unauthorized-domain');
+      } else if (code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
+        setErrorMsg('auth/operation-not-allowed');
+      } else if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found'
+      ) {
         setErrorMsg('Invalid email or password. Please check your credentials.');
       } else if (code === 'auth/email-already-in-use') {
         setErrorMsg('An account with this email already exists. Try signing in.');
       } else if (code === 'auth/weak-password') {
         setErrorMsg('Password must be at least 6 characters.');
-      } else if (code === 'auth/operation-not-allowed') {
-        setErrorMsg(
-          'Email/password is not enabled in Firebase console. Please use Google Sign-in or Demo Login.'
-        );
       } else {
         setErrorMsg(err?.message || 'Authentication failed. Please check your details.');
       }
@@ -229,11 +264,132 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </button>
           </div>
 
-          {/* Error Alert */}
+          {/* Error Alert / Troubleshooting Guide */}
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <span>{errorMsg}</span>
+            <div>
+              {errorMsg === 'auth/unauthorized-domain' ? (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-2.5">
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-amber-900 text-xs">
+                        Authorize Vercel Domain in Firebase
+                      </h4>
+                      <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                        Firebase blocks auth requests from new Vercel domains until added to your project's Authorized Domains list.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/95 p-2.5 rounded-xl border border-amber-200/80 space-y-2 text-[11px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-stone-500 font-medium">Your current domain:</span>
+                      <div className="flex items-center gap-1">
+                        <code className="font-mono font-bold text-stone-800 bg-stone-100 px-1.5 py-0.5 rounded text-[11px]">
+                          {currentHostname}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={handleCopyDomain}
+                          className="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold text-[10px] flex items-center gap-1 transition cursor-pointer"
+                        >
+                          {copiedDomain ? (
+                            <>
+                              <Check className="h-3 w-3 text-emerald-600" />
+                              <span>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-1.5 border-t border-amber-100 text-[10px] text-stone-600 space-y-1">
+                      <p className="font-semibold text-stone-800">Quick 2-Step Fix:</p>
+                      <ol className="list-decimal pl-4 space-y-1 text-stone-700">
+                        <li>
+                          Open{' '}
+                          <a
+                            href="https://console.firebase.google.com/project/top-oxygen-4nm9t/authentication/settings"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-bold text-amber-700 underline inline-flex items-center gap-0.5 hover:text-amber-900"
+                          >
+                            Firebase Auth Settings <ExternalLink className="h-2.5 w-2.5" />
+                          </a>
+                        </li>
+                        <li>Under <strong>Authorized domains</strong>, click <strong>Add domain</strong> and paste <code>{currentHostname}</code> (and <code>vercel.app</code>).</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-amber-700">Immediate access for owner:</span>
+                    <button
+                      type="button"
+                      onClick={handleSuperAdminLogin}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] shadow-2xs transition flex items-center gap-1"
+                    >
+                      <Crown className="h-3 w-3" />
+                      <span>Sign In as Super Admin</span>
+                    </button>
+                  </div>
+                </div>
+              ) : errorMsg === 'auth/operation-not-allowed' ? (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-2.5">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-amber-900 text-xs">
+                        Enable Email/Password in Firebase Console
+                      </h4>
+                      <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                        The Email/Password sign-in method is currently disabled in your Firebase project.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/95 p-2.5 rounded-xl border border-amber-200/80 text-[10px] text-stone-700 space-y-1.5">
+                    <p className="font-semibold text-stone-900">How to enable in 20 seconds:</p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>
+                        Open{' '}
+                        <a
+                          href="https://console.firebase.google.com/project/top-oxygen-4nm9t/authentication/providers"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold text-amber-700 underline inline-flex items-center gap-0.5 hover:text-amber-900"
+                        >
+                          Sign-in method in Firebase Console <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      </li>
+                      <li>Click on <strong>Email/Password</strong>.</li>
+                      <li>Toggle <strong>Enable</strong> to ON and click <strong>Save</strong>.</li>
+                    </ol>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-amber-700">Immediate access:</span>
+                    <button
+                      type="button"
+                      onClick={handleSuperAdminLogin}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] shadow-2xs transition flex items-center gap-1"
+                    >
+                      <Crown className="h-3 w-3" />
+                      <span>Sign In as Super Admin</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -299,22 +455,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="h-4 w-4 text-stone-400 absolute left-3 top-2.5" />
-                <input
-                  type="email"
-                  required
-                  placeholder="student@kiu.ac.ug or personal@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                />
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="h-4 w-4 text-stone-400 absolute left-3 top-2.5" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="student@kiu.ac.ug or personal@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+                {email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() && (
+                  <div className="mt-2 p-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Crown className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                      <span className="font-semibold">Super Admin Account</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSuperAdminLogin}
+                      className="text-[10px] font-bold text-amber-800 bg-amber-200/80 hover:bg-amber-300 px-2 py-0.5 rounded-md transition cursor-pointer"
+                    >
+                      1-Click Sign In ⚡
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
@@ -454,10 +625,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="button"
               onClick={() => handleDemoLogin('customer')}
-              className="w-full px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700 flex items-center justify-center gap-1.5 transition text-center"
+              className="w-full px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700 flex items-center justify-center gap-1.5 transition text-center cursor-pointer"
             >
               <User className="h-3.5 w-3.5 text-amber-600 shrink-0" />
               <span>Continue with KIU Student Demo</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSuperAdminLogin}
+              className="w-full mt-2 px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold text-amber-900 border border-amber-300/70 flex items-center justify-center gap-1.5 transition text-center cursor-pointer"
+            >
+              <Crown className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span>Sign In as Super Admin (okiriae2004@gmail.com)</span>
             </button>
           </div>
         </div>

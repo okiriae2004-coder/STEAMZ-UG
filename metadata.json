@@ -1,0 +1,6 @@
+{
+  "name": "STEAMZ - Spot-Drop Food Delivery & Restaurant Platform",
+  "description": "Smart meal delivery with dedicated drop spots, timed meal order windows, live order tracking, customer feedback, and restaurant-specific analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

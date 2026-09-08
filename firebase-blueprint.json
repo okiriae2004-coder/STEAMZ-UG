@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile in STEAMZ with role and spot preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "photoURL": { "type": "string", "maxLength": 512 },
+        "role": { "type": "string", "enum": ["customer", "owner", "courier"] },
+        "preferredDropSpotId": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["uid", "email", "displayName", "role"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer food delivery order assigned to a specific drop spot and meal window",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "orderNumber": { "type": "string", "maxLength": 32 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerPhone": { "type": "string", "maxLength": 32 },
+        "customerEmail": { "type": "string", "maxLength": 256 },
+        "restaurantId": { "type": "string", "maxLength": 128 },
+        "restaurantName": { "type": "string", "maxLength": 100 },
+        "dropSpotId": { "type": "string", "maxLength": 64 },
+        "dropSpotName": { "type": "string", "maxLength": 100 },
+        "dropSpotLockerCode": { "type": "string", "maxLength": 32 },
+        "mealWindowType": { "type": "string", "maxLength": 32 },
+        "batchDropTime": { "type": "string", "maxLength": 32 },
+        "pickupPin": { "type": "string", "maxLength": 16 },
+        "status": { "type": "string", "enum": ["placed", "confirmed", "preparing", "in_transit", "at_spot", "collected", "cancelled"] },
+        "subtotal": { "type": "number" },
+        "batchFee": { "type": "number" },
+        "total": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "restaurantId", "dropSpotId", "status", "total"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User review and ratings for a spot-drop order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "orderId": { "type": "string", "maxLength": 128 },
+        "restaurantId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "dropSpotName": { "type": "string", "maxLength": 100 },
+        "overallRating": { "type": "number" },
+        "foodQualityRating": { "type": "number" },
+        "spotDeliveryRating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "orderId", "restaurantId", "userId", "overallRating"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "Menu item dish with descriptions, prices, dietary information, and customization modifier groups",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "restaurantId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "price": { "type": "number" },
+        "category": { "type": "string", "maxLength": 64 },
+        "image": { "type": "string", "maxLength": 1024 },
+        "calories": { "type": "number" },
+        "prepTimeMinutes": { "type": "number" },
+        "isPopular": { "type": "boolean" },
+        "isChefSpecial": { "type": "boolean" }
+      },
+      "required": ["id", "restaurantId", "name", "price", "category"]
+    },
+    "RolePermissions": {
+      "title": "RolePermissions",
+      "description": "System role and privilege assignments managed exclusively by okiriae2004@gmail.com",
+      "type": "object",
+      "properties": {
+        "admins": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of authorized administrator emails"
+        },
+        "restaurantOwners": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of authorized restaurant owner emails"
+        },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["admins", "restaurantOwners"]
+    }
+  },
+  "firestore": {
+    "/system/permissions": {
+      "schema": "RolePermissions",
+      "description": "Exclusive role authorizations controlled by okiriae2004@gmail.com"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile with role, email, and preferred drop spot"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Placed orders by customers tracked for locker drop-off"
+    },
+    "/feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "Customer feedback and ratings for food and spot delivery"
+    },
+    "/menuItems/{itemId}": {
+      "schema": "MenuItem",
+      "description": "Restaurant menu items with prices, photos, dietary tags, and modifiers"
+    }
+  }
+}

@@ -79,6 +79,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [userProfile]);
 
+  // Filter orders strictly to active user. If not logged in, show no orders.
+  const activeUid = userProfile?.uid || currentUser?.uid;
+  const activeEmail = userProfile?.email?.toLowerCase() || currentUser?.email?.toLowerCase() || '';
+  const isAuthenticated = Boolean(currentUser || userProfile);
+  const myOrders = orders.filter((o) => {
+    if (!isAuthenticated) return false;
+    if (activeUid && o.userId) {
+      return o.userId === activeUid;
+    }
+    if (activeEmail && o.customerEmail) {
+      return o.customerEmail.toLowerCase() === activeEmail;
+    }
+    return false;
+  });
+
   if (!isOpen) return null;
 
   const currentRest = restaurants.find((r) => r.id === (cart[0]?.menuItem.restaurantId));
@@ -182,7 +197,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 }`}
               >
                 <Package className="h-3.5 w-3.5 text-amber-600" />
-                <span>My Orders ({orders.length})</span>
+                <span>My Orders ({myOrders.length})</span>
               </button>
             </div>
           </div>
@@ -190,14 +205,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           {activeTab === 'orders' ? (
             /* Orders View inside Cart Drawer */
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {orders.length === 0 ? (
+              {myOrders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="h-16 w-16 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-3">
                     <Package className="h-8 w-8" />
                   </div>
-                  <h4 className="text-sm font-bold text-stone-900">No orders placed yet</h4>
+                  <h4 className="text-sm font-bold text-stone-900">
+                    {!isAuthenticated ? 'Sign in to view your orders' : 'No orders placed yet'}
+                  </h4>
                   <p className="text-xs text-stone-500 max-w-xs mt-1">
-                    Once you submit an order, your live batch delivery status and pickup locker PIN will appear right here.
+                    {!isAuthenticated
+                      ? 'Your active deliveries and locker pickup PINs are private and linked to your account.'
+                      : 'Once you submit an order, your live batch delivery status and pickup locker PIN will appear right here.'}
                   </p>
                   <button
                     onClick={() => setActiveTab('cart')}
@@ -208,7 +227,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {orders.map((ord) => (
+                  {myOrders.map((ord) => {
+                    const pinToDisplay = ord.pickupPin || (ord as any).lockerPin;
+                    return (
                     <div
                       key={ord.id}
                       className="p-4 rounded-2xl border border-stone-200 bg-white shadow-2xs hover:border-amber-300 transition"
@@ -244,14 +265,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </div>
                       </div>
 
-                      {ord.lockerPin && (
+                      {pinToDisplay && (
                         <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between">
                           <div>
                             <span className="text-[10px] uppercase font-bold text-amber-800 block">
                               Pickup Locker PIN
                             </span>
                             <span className="text-base font-black font-mono tracking-widest text-stone-900">
-                              {ord.lockerPin}
+                              {pinToDisplay}
                             </span>
                           </div>
                           {onOpenOrderTracker && (
@@ -268,7 +289,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </div>
                       )}
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               )}
             </div>

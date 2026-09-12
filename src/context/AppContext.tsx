@@ -117,9 +117,29 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_KEY_PREFIX = 'steamz_v4_';
 
-function loadFromStorage<T>(key: string, fallback: T): T {
+// Helper to determine current active user ID (from Firebase Auth or local session)
+function getActiveUserId(): string | null {
+  if (auth.currentUser?.uid) {
+    return auth.currentUser.uid;
+  }
   try {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + key);
+    const savedSession = localStorage.getItem('steamz_local_session');
+    if (savedSession) {
+      const parsed = JSON.parse(savedSession);
+      if (parsed?.uid) {
+        return parsed.uid;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function loadFromStorage<T>(key: string, fallback: T, scopedUserId?: string | null): T {
+  try {
+    const fullKey = scopedUserId
+      ? `${LOCAL_STORAGE_KEY_PREFIX}user_${scopedUserId}_${key}`
+      : `${LOCAL_STORAGE_KEY_PREFIX}${key}`;
+    const saved = localStorage.getItem(fullKey);
     if (saved) {
       return JSON.parse(saved);
     }
@@ -129,9 +149,12 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   return fallback;
 }
 
-function saveToStorage<T>(key: string, value: T) {
+function saveToStorage<T>(key: string, value: T, scopedUserId?: string | null) {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + key, JSON.stringify(value));
+    const fullKey = scopedUserId
+      ? `${LOCAL_STORAGE_KEY_PREFIX}user_${scopedUserId}_${key}`
+      : `${LOCAL_STORAGE_KEY_PREFIX}${key}`;
+    localStorage.setItem(fullKey, JSON.stringify(value));
   } catch (e) {
     console.error(`Failed to save ${key} to storage:`, e);
   }
@@ -197,8 +220,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .map((r) => r.email.toLowerCase()),
   ];
 
+  const [activeUserId, setActiveUserId] = useState<string | null>(() => getActiveUserId());
+
   const [orders, setOrders] = useState<Order[]>(() => {
-    const loaded = loadFromStorage('orders', INITIAL_ORDERS);
+    const currentUid = getActiveUserId();
+    // Clean up any legacy unscoped orders key from old sessions so it doesn't leak
+    try {
+      if (typeof window !== 'undefined' && localStorage.getItem('steamz_v4_orders')) {
+        localStorage.removeItem('steamz_v4_orders');
+      }
+    } catch {}
+
+    // If no user is logged in, orders MUST be empty
+    if (!currentUid) {
+      return [];
+    }
+
+    const loaded = loadFromStorage('orders', INITIAL_ORDERS, currentUid);
     return (loaded || []).filter(
       (o: Order) => !['ord-101', 'ord-102', 'ord-103'].includes(o.id)
     );
@@ -207,9 +245,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromStorage('feedbacks', INITIAL_FEEDBACKS)
   );
 
-  const [cart, setCart] = useState<CartItem[]>(() =>
-    loadFromStorage('cart', [])
-  );
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const currentUid = getActiveUserId();
+    return loadFromStorage('cart', [], currentUid);
+  });
   const [selectedDropSpotId, setSelectedDropSpotId] = useState<string | null>(() => {
     const saved = loadFromStorage<string>('selected_spot', 'spot-kiu-eng');
     if (saved === 'spot-1' || !saved) return 'spot-kiu-eng';
@@ -291,10 +330,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [roleAssignments]
   );
 
+  // Helper to get active user email (from Firebase Auth or local session)
+  const getActiveUserEmail = useCallback((): string | null => {
+    if (auth.currentUser?.email) {
+      return auth.currentUser.email.trim().toLowerCase();
+    }
+    try {
+      const savedSession = localStorage.getItem('steamz_local_session');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed?.email) {
+          return parsed.email.trim().toLowerCase();
+        }
+      }
+    } catch (e) {}
+    return null;
+  }, []);
+
   // Secure setUserRole: Prevents arbitrary promotion by non-authorized users
   const setUserRole = useCallback(
     (role: UserRole) => {
-      const currentEmail = auth.currentUser?.email?.trim().toLowerCase();
+      const currentEmail = getActiveUserEmail();
       if (role === 'admin') {
         if (!hasAdminPrivilege(currentEmail)) {
           console.warn(`Unauthorized attempt to activate admin role by ${currentEmail || 'guest'}`);
@@ -310,13 +366,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       setUserRoleState(role);
     },
-    [hasAdminPrivilege, hasOwnerPrivilege]
+    [getActiveUserEmail, hasAdminPrivilege, hasOwnerPrivilege]
   );
 
-  // Re-check role when auth state changes
+  // Track active user ID changes and sync user-scoped cart and orders
   useEffect(() => {
+    const handleUserSwitch = (newUid: string | null) => {
+      setActiveUserId((prevUid) => {
+        if (prevUid !== newUid) {
+          // User changed! Reload the cart & orders for the new user
+          const newCart = newUid ? loadFromStorage('cart', [], newUid) : [];
+          setCart(newCart);
+          const newOrders = newUid ? loadFromStorage('orders', INITIAL_ORDERS, newUid) : [];
+          setOrders((newOrders || []).filter(
+            (o: Order) => !['ord-101', 'ord-102', 'ord-103'].includes(o.id)
+          ));
+          return newUid;
+        }
+        return prevUid;
+      });
+    };
+
     const unsub = onAuthStateChanged(auth, (user) => {
-      const email = user?.email?.toLowerCase();
+      const currentUid = user?.uid || getActiveUserId();
+      handleUserSwitch(currentUid);
+
+      const email = user?.email?.toLowerCase() || getActiveUserEmail();
       if (email === SUPER_ADMIN_EMAIL.toLowerCase()) {
         setUserRoleState('admin');
       } else if (email && hasAdminPrivilege(email)) {
@@ -328,8 +403,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUserRoleState((prev) => (prev === 'admin' || prev === 'owner' ? 'customer' : prev));
       }
     });
-    return () => unsub();
-  }, [hasAdminPrivilege, hasOwnerPrivilege]);
+
+    // Check on mount for local session as well
+    const localUid = getActiveUserId();
+    handleUserSwitch(localUid);
+
+    const localEmail = getActiveUserEmail();
+    if (localEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
+      setUserRoleState('admin');
+    }
+
+    // Also listen for cross-tab or in-page storage changes to steamz_local_session
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'steamz_local_session') {
+        const nextUid = getActiveUserId();
+        handleUserSwitch(nextUid);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      unsub();
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [getActiveUserEmail, hasAdminPrivilege, hasOwnerPrivilege]);
 
   // Privilege Granting: ONLY okiriae2004@gmail.com is authorized to call this
   const grantPrivilege = async (
@@ -338,7 +435,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     restaurantId?: string,
     restaurantName?: string
   ): Promise<{ success: boolean; message: string }> => {
-    const currentEmail = auth.currentUser?.email?.trim().toLowerCase();
+    const currentEmail = getActiveUserEmail();
     if (currentEmail !== SUPER_ADMIN_EMAIL.toLowerCase()) {
       return {
         success: false,
@@ -441,9 +538,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => saveToStorage('menu_items', menuItems), [menuItems]);
   useEffect(() => saveToStorage('drop_spots', dropSpots), [dropSpots]);
   useEffect(() => saveToStorage('admins', admins), [admins]);
-  useEffect(() => saveToStorage('orders', orders), [orders]);
+  useEffect(() => {
+    if (activeUserId) {
+      saveToStorage('orders', orders, activeUserId);
+    }
+  }, [orders, activeUserId]);
   useEffect(() => saveToStorage('feedbacks', feedbacks), [feedbacks]);
-  useEffect(() => saveToStorage('cart', cart), [cart]);
+  useEffect(() => saveToStorage('cart', cart, activeUserId), [cart, activeUserId]);
   useEffect(() => saveToStorage('selected_spot', selectedDropSpotId), [selectedDropSpotId]);
   useEffect(() => saveToStorage('low_data_mode', lowDataMode), [lowDataMode]);
 

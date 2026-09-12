@@ -61,12 +61,17 @@ export const Header: React.FC<HeaderProps> = ({
   const currentUniversity = universities.find((u) => u.id === selectedUniversityId) || universities[0];
   const currentSpot = dropSpots.find((s) => s.id === selectedDropSpotId) || dropSpots[0];
 
-  // Count active orders
-  const activeOrders = orders.filter(
-    (o) => o.status !== 'collected' && o.status !== 'cancelled'
-  );
-
   const isAuthenticated = Boolean(currentUser || userProfile);
+
+  // Count active orders for current user only
+  const activeUid = currentUser?.uid || userProfile?.uid;
+  const activeOrders = orders.filter((o) => {
+    if (o.status === 'collected' || o.status === 'cancelled') return false;
+    if (!isAuthenticated) return false;
+    if (activeUid && o.userId) return o.userId === activeUid;
+    if (activeEmail && o.customerEmail) return o.customerEmail.toLowerCase() === activeEmail.toLowerCase();
+    return false;
+  });
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-stone-200">

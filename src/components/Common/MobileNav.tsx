@@ -40,13 +40,19 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   const { userRole, setUserRole, cart, orders, dropSpots, selectedDropSpotId } = useApp();
   const { currentUser, userProfile } = useAuth();
 
+  const isAuthenticated = Boolean(currentUser || userProfile);
+  const activeUid = currentUser?.uid || userProfile?.uid;
+  const activeEmail = currentUser?.email || userProfile?.email;
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const activeOrdersCount = orders.filter(
-    (o) => o.status !== 'collected' && o.status !== 'cancelled'
-  ).length;
+  const activeOrdersCount = orders.filter((o) => {
+    if (o.status === 'collected' || o.status === 'cancelled') return false;
+    if (!isAuthenticated) return false;
+    if (activeUid && o.userId) return o.userId === activeUid;
+    if (activeEmail && o.customerEmail) return o.customerEmail.toLowerCase() === activeEmail.toLowerCase();
+    return false;
+  }).length;
 
   const currentSpot = dropSpots.find((s) => s.id === selectedDropSpotId) || dropSpots[0];
-  const isAuthenticated = Boolean(currentUser || userProfile);
 
   return (
     <nav

@@ -73,8 +73,15 @@ function MainLayout() {
   }, [activeTrackingOrderId, setActiveTrackingOrderId]);
 
   const handleOpenActiveTracker = () => {
-    // Pick the most recent active order
-    const active = orders.find((o) => o.status !== 'collected' && o.status !== 'cancelled') || orders[0];
+    // Pick the most recent active order belonging to current user
+    const activeUid = currentUser?.uid || userProfile?.uid;
+    const activeEmail = currentUser?.email || userProfile?.email;
+    const userOrders = orders.filter((o) => {
+      if (activeUid && o.userId) return o.userId === activeUid;
+      if (activeEmail && o.customerEmail) return o.customerEmail.toLowerCase() === activeEmail.toLowerCase();
+      return false;
+    });
+    const active = userOrders.find((o) => o.status !== 'collected' && o.status !== 'cancelled') || userOrders[0];
     if (active) {
       setSelectedTrackingOrderId(active.id);
       setIsTrackerOpen(true);
@@ -226,6 +233,10 @@ function MainLayout() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onOpenSpotSelector={() => setIsSpotSelectorOpen(true)}
+        onOpenOrderTracker={(orderId) => {
+          setSelectedTrackingOrderId(orderId);
+          setIsTrackerOpen(true);
+        }}
       />
 
       <SpotSelectorModal

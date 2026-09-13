@@ -8,9 +8,31 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
-import { UserRole, RoleAssignment, SUPER_ADMIN_EMAIL } from '../types';
+import { UserRole, RoleAssignment, SUPER_ADMIN_EMAIL, PhoneAccount } from '../types';
+
+// Canonical phone digits normalizer for Uganda/Africa (strips 0 or 256, returns standard 12-digit string e.g. "256771234567")
+export const normalizePhoneDigits = (raw: string): string => {
+  if (!raw) return '';
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('256') && digits.length >= 12) {
+    digits = digits.slice(3);
+  }
+  if (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  return `256${digits}`;
+};
+
+// User-friendly display format (e.g. "+256 771 234 567")
+export const formatUgPhoneDisplay = (raw: string): string => {
+  const digits = normalizePhoneDigits(raw);
+  if (digits.length === 12 && digits.startsWith('256')) {
+    return `+256 ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9)}`;
+  }
+  return digits ? `+${digits}` : '';
+};
 
 // Helper to strictly resolve role based on permissions
 const resolveUserRole = (email?: string | null): UserRole => {
@@ -88,6 +110,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isDemoUser, setIsDemoUser] = useState<boolean>(false);
+
+  // Auto-migrate any local PIN accounts to Cloud Firestore on mount for complete cross-device persistence
+  useEffect(() => {
+    const migrateLocalAccountsToCloud = async () => {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('steamz_phone_')) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                const phoneInput = parsed.phoneDigits || parsed.phone || '';
+                if (phoneInput && parsed.pin) {
+                  const digits = normalizePhoneDigits(phoneInput);
+                  if (digits.length >= 9) {
+                    const docId = `phone_${digits}`;
+                    const cloudSnap = await getDoc(doc(db, 'phoneAccounts', docId));
+                    if (!cloudSnap.exists()) {
+                      const accountDoc: PhoneAccount = {
+                        docId,
+                        phoneDigits: digits,
+                        phone: parsed.phone || formatUgPhoneDisplay(digits),
+                        pin: String(parsed.pin).trim(),
+                        displayName: parsed.displayName || `Student (${digits.slice(-4)})`,
+                        uid: parsed.uid || `user-phone-${digits}`,
+                        email: parsed.email || `phone_${digits}@steamz.ug`,
+                        role: 'customer',
+                        universityId: parsed.universityId || 'kiu-western',
+                        universityName:
+                          parsed.universityName ||
+                          'Kampala International University (KIU Western)',
+                        preferredDropSpotId: parsed.preferredDropSpotId || 'spot-kiu-eng',
+                        createdAt: parsed.createdAt || new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                      };
+                      await setDoc(doc(db, 'phoneAccounts', docId), accountDoc);
+                      console.log(`[STEAMZ Cloud Sync] Migrated local account ${digits} to Cloud Firestore.`);
+                    }
+                  }
+                }
+              } catch (parseErr) {
+                // ignore
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Local account cloud sync notice:', err);
+      }
+    };
+
+    migrateLocalAccountsToCloud();
+  }, []);
 
   // Restore local session on initial mount (for Vercel deployment fallback or offline mode)
   useEffect(() => {
@@ -242,114 +318,156 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Normalizes Ugandan phone numbers (+256 or 07xx / 03xx)
-  const normalizeUgPhone = (raw: string): string => {
-    const digits = raw.replace(/[^\d+]/g, '').trim();
-    if (digits.startsWith('0')) {
-      return `+256${digits.slice(1)}`;
-    }
-    if (digits.startsWith('256')) {
-      return `+${digits}`;
-    }
-    if (!digits.startsWith('+')) {
-      return `+256${digits}`;
-    }
-    return digits;
+  // Backward compatible alias
+  const normalizeUgPhone = (raw: string): string => normalizePhoneDigits(raw);
+
+  const phoneToSyntheticEmail = (phoneOrDigits: string): string => {
+    const digits = normalizePhoneDigits(phoneOrDigits);
+    return `phone_${digits}@steamz.ug`;
   };
 
-  const phoneToSyntheticEmail = (phone: string): string => {
-    const digitsOnly = normalizeUgPhone(phone).replace(/\+/g, '');
-    return `phone_${digitsOnly}@steamz.ug`;
-  };
-
-  // Sign In with WhatsApp / Phone Number + 4-6 digit PIN
-  const loginWithPhoneAndPin = async (rawPhone: string, pin: string) => {
+  // Sign In with WhatsApp / Phone Number + 4-6 digit PIN (100% Persistent across Cloud & Local)
+  const loginWithPhoneAndPin = async (rawPhone: string, rawPin: string) => {
     setAuthLoading(true);
-    const normalizedPhone = normalizeUgPhone(rawPhone);
-    const syntheticEmail = phoneToSyntheticEmail(normalizedPhone);
-    const syntheticPass = `PIN_${pin}_Steamz`;
+    const phoneDigits = normalizePhoneDigits(rawPhone);
+    const cleanPin = rawPin.trim();
+    const docId = `phone_${phoneDigits}`;
+    const displayPhone = formatUgPhoneDisplay(rawPhone) || rawPhone;
 
-    // 1. Check local credentials store first (guarantees instantaneous login on Vercel without domain error)
-    try {
-      const storedAccountRaw = localStorage.getItem(`steamz_phone_${normalizedPhone}`);
-      if (storedAccountRaw) {
-        const stored = JSON.parse(storedAccountRaw);
-        if (stored.pin === pin) {
-          const profile: UserProfile = {
-            uid: stored.uid || `user-phone-${Date.now()}`,
-            email: stored.email || syntheticEmail,
-            displayName: stored.displayName || `Student (${normalizedPhone.slice(-4)})`,
-            phone: normalizedPhone,
-            whatsapp: normalizedPhone,
-            role: resolveUserRole(stored.email || syntheticEmail),
-            universityId: stored.universityId || 'kiu-western',
-            universityName:
-              stored.universityId === 'kiu-western'
-                ? 'Kampala International University (KIU Western)'
-                : stored.universityId || 'Kampala International University (KIU Western)',
-            preferredDropSpotId: stored.preferredDropSpotId || 'spot-kiu-eng',
-            createdAt: stored.createdAt || new Date().toISOString(),
-          };
-          setUserProfile(profile);
-          localStorage.setItem('steamz_local_session', JSON.stringify(profile));
-          setAuthLoading(false);
-          return;
-        } else {
-          setAuthLoading(false);
-          throw new Error('Incorrect PIN. Please re-enter your secret PIN.');
-        }
-      }
-    } catch (localErr: any) {
-      if (localErr.message?.includes('Incorrect PIN')) {
-        setAuthLoading(false);
-        throw localErr;
-      }
-    }
-
-    // 2. Try Firebase Auth backend
-    try {
-      const cred = await signInWithEmailAndPassword(auth, syntheticEmail, syntheticPass);
-      const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data() as UserProfile;
-        data.role = resolveUserRole(data.email);
-        setUserProfile(data);
-        localStorage.setItem('steamz_local_session', JSON.stringify(data));
-      } else {
-        const fallbackProfile: UserProfile = {
-          uid: cred.user.uid,
-          email: syntheticEmail,
-          displayName: cred.user.displayName || `Student (${normalizedPhone.slice(-4)})`,
-          phone: normalizedPhone,
-          whatsapp: normalizedPhone,
-          role: resolveUserRole(syntheticEmail),
-          universityId: 'kiu-western',
-          universityName: 'Kampala International University (KIU Western)',
-          preferredDropSpotId: 'spot-kiu-eng',
-          createdAt: new Date().toISOString(),
-        };
-        setUserProfile(fallbackProfile);
-        localStorage.setItem('steamz_local_session', JSON.stringify(fallbackProfile));
-      }
-    } catch (fbErr: any) {
-      console.warn('Firebase phone auth fallback:', fbErr);
-      const code = fbErr?.code || '';
-      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-        throw new Error('Incorrect PIN. Please check your PIN.');
-      } else if (code === 'auth/user-not-found') {
-        throw new Error('Account not found. Please click "Register (New Account)" below to create your PIN.');
-      } else {
-        throw new Error('Account not found with this phone number. Please click "Register" to create your account in 5 seconds.');
-      }
-    } finally {
+    if (!phoneDigits || phoneDigits.length < 9) {
       setAuthLoading(false);
+      throw new Error('Please enter a valid WhatsApp phone number.');
     }
+    if (!cleanPin || cleanPin.length < 4) {
+      setAuthLoading(false);
+      throw new Error('Please enter your 4 to 6 digit secret PIN.');
+    }
+
+    let foundAccount: any = null;
+
+    // 1. Check Cloud Firestore FIRST for cross-device, cross-browser persistence
+    try {
+      const cloudSnap = await getDoc(doc(db, 'phoneAccounts', docId));
+      if (cloudSnap.exists()) {
+        foundAccount = cloudSnap.data();
+        console.log(`[STEAMZ Auth] Found phone account in Cloud Firestore for ${docId}`);
+      }
+    } catch (cloudErr) {
+      console.warn('Firestore phone lookup error or offline:', cloudErr);
+    }
+
+    // 2. Check local credentials cache if not found in Firestore (e.g. offline or instant local cache)
+    if (!foundAccount) {
+      try {
+        const localRaw =
+          localStorage.getItem(`steamz_phone_${phoneDigits}`) ||
+          localStorage.getItem(`steamz_phone_+${phoneDigits}`) ||
+          localStorage.getItem(`steamz_phone_0${phoneDigits.slice(3)}`);
+        if (localRaw) {
+          foundAccount = JSON.parse(localRaw);
+          // If found in localStorage, immediately sync back to Cloud Firestore
+          if (foundAccount) {
+            setDoc(doc(db, 'phoneAccounts', docId), {
+              ...foundAccount,
+              docId,
+              phoneDigits,
+              updatedAt: new Date().toISOString(),
+            }).catch(() => {});
+          }
+        }
+      } catch (localErr) {
+        console.warn('Local phone cache lookup error:', localErr);
+      }
+    }
+
+    // 3. Fallback scan of all localStorage keys in case phone was stored with alternate formatting
+    if (!foundAccount) {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('steamz_phone_')) {
+            const rawVal = localStorage.getItem(key);
+            if (rawVal) {
+              const parsed = JSON.parse(rawVal);
+              if (parsed && (parsed.phone || parsed.phoneDigits)) {
+                const itemDigits = normalizePhoneDigits(parsed.phoneDigits || parsed.phone);
+                if (itemDigits === phoneDigits) {
+                  foundAccount = parsed;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (scanErr) {
+        // ignore
+      }
+    }
+
+    // 4. Verify Account & PIN
+    if (foundAccount) {
+      const storedPin = String(foundAccount.pin || '').trim();
+      if (storedPin !== cleanPin) {
+        setAuthLoading(false);
+        throw new Error('Incorrect PIN. Please re-enter your secret PIN.');
+      }
+
+      // PIN matches! Build and activate user profile
+      const uid = foundAccount.uid || `user-phone-${phoneDigits}`;
+      const syntheticEmail = foundAccount.email || `phone_${phoneDigits}@steamz.ug`;
+      const displayName = foundAccount.displayName || `Student (${phoneDigits.slice(-4)})`;
+      const universityId = foundAccount.universityId || 'kiu-western';
+      const universityName =
+        foundAccount.universityName ||
+        (universityId === 'kiu-western'
+          ? 'Kampala International University (KIU Western)'
+          : universityId);
+      const preferredDropSpotId = foundAccount.preferredDropSpotId || 'spot-kiu-eng';
+
+      const profile: UserProfile = {
+        uid,
+        email: syntheticEmail,
+        displayName,
+        phone: foundAccount.phone || displayPhone,
+        whatsapp: foundAccount.whatsapp || foundAccount.phone || displayPhone,
+        role: resolveUserRole(syntheticEmail),
+        universityId,
+        universityName,
+        preferredDropSpotId,
+        createdAt: foundAccount.createdAt || new Date().toISOString(),
+      };
+
+      setUserProfile(profile);
+      setIsDemoUser(false);
+
+      // Cache session locally
+      try {
+        localStorage.setItem('steamz_local_session', JSON.stringify(profile));
+        localStorage.setItem(`steamz_phone_${phoneDigits}`, JSON.stringify(foundAccount));
+      } catch (e) {}
+
+      // Update last login in Cloud Firestore
+      try {
+        await updateDoc(doc(db, 'phoneAccounts', docId), {
+          lastLoginAt: new Date().toISOString(),
+        });
+      } catch (e) {}
+
+      setAuthLoading(false);
+      return;
+    }
+
+    // 5. Account not found anywhere
+    setAuthLoading(false);
+    throw new Error(
+      `No account found with WhatsApp number ${displayPhone}. Please click "Register (New Account)" to create your secret PIN in 5 seconds.`
+    );
   };
 
-  // Register with WhatsApp / Phone Number + 4-6 digit PIN
+  // Register with WhatsApp / Phone Number + 4-6 digit PIN (Saved to Cloud Firestore & Local Cache)
   const registerWithPhoneAndPin = async ({
     phone: rawPhone,
-    pin,
+    pin: rawPin,
     displayName,
     universityId = 'kiu-western',
     preferredDropSpotId = 'spot-kiu-eng',
@@ -361,71 +479,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     preferredDropSpotId?: string;
   }) => {
     setAuthLoading(true);
-    const normalizedPhone = normalizeUgPhone(rawPhone);
-    const syntheticEmail = phoneToSyntheticEmail(normalizedPhone);
-    const syntheticPass = `PIN_${pin}_Steamz`;
-    const cleanName = displayName.trim() || `User ${normalizedPhone.slice(-4)}`;
-    let uid = `user-phone-${Date.now()}`;
+    const phoneDigits = normalizePhoneDigits(rawPhone);
+    const cleanPin = rawPin.trim();
+    const docId = `phone_${phoneDigits}`;
+    const displayPhone = formatUgPhoneDisplay(rawPhone) || rawPhone;
+    const syntheticEmail = `phone_${phoneDigits}@steamz.ug`;
+    const syntheticPass = `PIN_${cleanPin}_Steamz`;
+    const cleanName = displayName.trim() || `Student ${phoneDigits.slice(-4)}`;
+    const uid = `user-phone-${phoneDigits}`;
 
-    // Attempt Firebase User Creation (safe if succeeds, catches if domain not authorized)
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, syntheticEmail, syntheticPass);
-      uid = cred.user.uid;
-      await updateProfile(cred.user, { displayName: cleanName });
-    } catch (fbErr: any) {
-      const code = fbErr?.code || '';
-      if (code === 'auth/email-already-in-use') {
-        // If account exists already, allow sign-in or let them know
-        console.warn('Phone already in Firebase, will update local profile');
-      } else {
-        console.warn('Firebase registration fallback (Vercel domain or provider bypass):', fbErr);
-      }
-    }
+    const universityName =
+      universityId === 'kiu-western'
+        ? 'Kampala International University (KIU Western)'
+        : universityId;
 
     const newProfile: UserProfile = {
       uid,
       email: syntheticEmail,
       displayName: cleanName,
-      phone: normalizedPhone,
-      whatsapp: normalizedPhone,
+      phone: displayPhone,
+      whatsapp: displayPhone,
       role: 'customer',
       universityId,
-      universityName:
-        universityId === 'kiu-western'
-          ? 'Kampala International University (KIU Western)'
-          : universityId,
+      universityName,
       preferredDropSpotId,
       createdAt: new Date().toISOString(),
     };
 
-    // 1. Save to Firestore doc if online
+    const phoneAccountData: PhoneAccount = {
+      docId,
+      phone: displayPhone,
+      phoneDigits,
+      pin: cleanPin,
+      displayName: cleanName,
+      uid,
+      email: syntheticEmail,
+      role: 'customer',
+      universityId,
+      universityName,
+      preferredDropSpotId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+    };
+
+    // 1. CLOUD PERSISTENCE: Save directly to Cloud Firestore phoneAccounts collection
     try {
-      await setDoc(doc(db, 'users', uid), newProfile);
-    } catch (docErr) {
-      console.warn('Firestore doc write fallback:', docErr);
+      await setDoc(doc(db, 'phoneAccounts', docId), phoneAccountData);
+      console.log(`[STEAMZ Auth] Successfully saved phone account to Cloud Firestore: ${docId}`);
+    } catch (cloudErr) {
+      console.warn('Could not write phoneAccount to Firestore:', cloudErr);
     }
 
-    // 2. Save directly to local phone credential vault for 100% reliable login everywhere
+    // 2. Also save to Firestore users/{uid} collection
     try {
-      localStorage.setItem(
-        `steamz_phone_${normalizedPhone}`,
-        JSON.stringify({
-          uid,
-          phone: normalizedPhone,
-          pin,
-          displayName: cleanName,
-          email: syntheticEmail,
-          universityId,
-          preferredDropSpotId,
-          createdAt: newProfile.createdAt,
-        })
-      );
+      await setDoc(doc(db, 'users', uid), newProfile, { merge: true });
+    } catch (userDocErr) {
+      console.warn('Could not write user profile to Firestore:', userDocErr);
+    }
+
+    // 3. Optional Firebase Auth background creation
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, syntheticEmail, syntheticPass);
+      await updateProfile(cred.user, { displayName: cleanName });
+    } catch (fbErr: any) {
+      console.warn('Firebase Auth background creation notice:', fbErr?.code || fbErr?.message);
+    }
+
+    // 4. LOCAL PERSISTENCE: Save into localStorage for instant offline access
+    try {
+      const accountJson = JSON.stringify(phoneAccountData);
+      localStorage.setItem(`steamz_phone_${phoneDigits}`, accountJson);
+      localStorage.setItem(`steamz_phone_+${phoneDigits}`, accountJson);
+      localStorage.setItem(`steamz_phone_0${phoneDigits.slice(3)}`, accountJson);
       localStorage.setItem('steamz_local_session', JSON.stringify(newProfile));
     } catch (e) {
       console.warn('Local credential vault write error:', e);
     }
 
     setUserProfile(newProfile);
+    setIsDemoUser(false);
     setAuthLoading(false);
   };
 
@@ -658,12 +791,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     const updated: UserProfile = { ...userProfile, ...safeUpdates };
     setUserProfile(updated);
-    if (currentUser && !isDemoUser) {
+    try {
+      localStorage.setItem('steamz_local_session', JSON.stringify(updated));
+    } catch (e) {}
+
+    const uid = currentUser?.uid || userProfile.uid;
+    if (uid && !isDemoUser) {
       try {
-        await setDoc(doc(db, 'users', currentUser.uid), safeUpdates, { merge: true });
+        await setDoc(doc(db, 'users', uid), safeUpdates, { merge: true });
       } catch (err) {
         console.warn('Could not sync user profile to Firestore:', err);
       }
+    }
+
+    // If phone account, also sync to phoneAccounts collection
+    if (updated.phone) {
+      try {
+        const digits = normalizePhoneDigits(updated.phone);
+        await updateDoc(doc(db, 'phoneAccounts', `phone_${digits}`), {
+          ...safeUpdates,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {}
     }
   };
 

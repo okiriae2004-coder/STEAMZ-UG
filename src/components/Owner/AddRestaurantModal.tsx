@@ -48,11 +48,9 @@ export const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({
   const [logoImage, setLogoImage] = useState(
     'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&auto=format&fit=crop&q=80'
   );
-  const [supportedDropSpotIds, setSupportedDropSpotIds] = useState<string[]>([
-    'spot-1',
-    'spot-2',
-    'spot-3',
-  ]);
+  const [supportedDropSpotIds, setSupportedDropSpotIds] = useState<string[]>(() =>
+    dropSpots.map((s) => s.id)
+  );
   const [prepTimeAvgMinutes, setPrepTimeAvgMinutes] = useState(10);
   const [minOrderAmount, setMinOrderAmount] = useState(10000);
   const [ownerName, setOwnerName] = useState('Partner Chef');
@@ -242,9 +240,28 @@ export const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({
 
           {/* Supported Drop Spots */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">
-              Select Authorized Delivery Spots ({supportedDropSpotIds.length} Selected)
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-stone-500">
+                Select Authorized Delivery Spots ({supportedDropSpotIds.length} Selected)
+              </label>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSupportedDropSpotIds(dropSpots.map((s) => s.id))}
+                  className="text-amber-600 hover:text-amber-700 font-semibold"
+                >
+                  Select All
+                </button>
+                <span className="text-stone-300">•</span>
+                <button
+                  type="button"
+                  onClick={() => setSupportedDropSpotIds([])}
+                  className="text-stone-400 hover:text-stone-600 font-medium"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {dropSpots.map((spot) => {
                 const isSelected = supportedDropSpotIds.includes(spot.id);

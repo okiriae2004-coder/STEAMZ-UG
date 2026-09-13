@@ -80,6 +80,36 @@
       },
       "required": ["id", "restaurantId", "name", "price", "category"]
     },
+    "Restaurant": {
+      "title": "Restaurant",
+      "description": "Registered partner kitchen with cuisines, operating windows, authorized delivery spots, and photos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "tagline": { "type": "string", "maxLength": 256 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "rating": { "type": "number" },
+        "ratingCount": { "type": "number" },
+        "bannerImage": { "type": "string", "maxLength": 1024 },
+        "logoImage": { "type": "string", "maxLength": 1024 },
+        "cuisine": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "supportedDropSpotIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "prepTimeAvgMinutes": { "type": "number" },
+        "minOrderAmount": { "type": "number" },
+        "ownerName": { "type": "string", "maxLength": 100 },
+        "ownerEmail": { "type": "string", "maxLength": 256 },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "cuisine", "supportedDropSpotIds"]
+    },
     "RolePermissions": {
       "title": "RolePermissions",
       "description": "System role and privilege assignments managed exclusively by okiriae2004@gmail.com",
@@ -99,12 +129,37 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["admins", "restaurantOwners"]
+    },
+    "PhoneAccount": {
+      "title": "PhoneAccount",
+      "description": "Campus student/customer account authenticated via WhatsApp phone number and 4-digit secret PIN",
+      "type": "object",
+      "properties": {
+        "docId": { "type": "string", "maxLength": 64 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "phoneDigits": { "type": "string", "maxLength": 32 },
+        "pin": { "type": "string", "maxLength": 16 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "role": { "type": "string", "enum": ["customer", "owner", "admin"] },
+        "universityId": { "type": "string", "maxLength": 64 },
+        "universityName": { "type": "string", "maxLength": 128 },
+        "preferredDropSpotId": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["phone", "phoneDigits", "pin", "displayName", "uid"]
     }
   },
   "firestore": {
     "/system/permissions": {
       "schema": "RolePermissions",
       "description": "Exclusive role authorizations controlled by okiriae2004@gmail.com"
+    },
+    "/phoneAccounts/{phoneId}": {
+      "schema": "PhoneAccount",
+      "description": "Persistent cloud credentials for students signing in via WhatsApp number and secret PIN"
     },
     "/users/{userId}": {
       "schema": "UserProfile",
@@ -121,6 +176,10 @@
     "/menuItems/{itemId}": {
       "schema": "MenuItem",
       "description": "Restaurant menu items with prices, photos, dietary tags, and modifiers"
+    },
+    "/restaurants/{restaurantId}": {
+      "schema": "Restaurant",
+      "description": "Partner kitchens visible to customers across universities and pickup drop spots"
     }
   }
 }

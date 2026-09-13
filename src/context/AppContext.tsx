@@ -13,7 +13,7 @@ import {
   RoleAssignment,
   SUPER_ADMIN_EMAIL,
 } from '../types';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -303,6 +303,119 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
     fetchPermissions();
+  }, []);
+
+  // Sync Restaurants from Firestore collection ('restaurants') in real time
+  useEffect(() => {
+    try {
+      const unsubscribe = onSnapshot(
+        collection(db, 'restaurants'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const firestoreRestaurants: Restaurant[] = [];
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as Restaurant;
+              if (data && data.name) {
+                firestoreRestaurants.push({
+                  ...data,
+                  id: docSnap.id,
+                });
+              }
+            });
+
+            if (firestoreRestaurants.length > 0) {
+              setRestaurants((prev) => {
+                // Merge cloud restaurants with any local un-synced ones
+                const mergedMap = new Map<string, Restaurant>();
+                // First add local to keep any newly created
+                prev.forEach((r) => mergedMap.set(r.id, r));
+                // Overwrite / add from Firestore
+                firestoreRestaurants.forEach((r) => mergedMap.set(r.id, r));
+                const mergedList = Array.from(mergedMap.values());
+                saveToStorage('restaurants', mergedList);
+                return mergedList;
+              });
+            }
+          } else {
+            // Firestore collection is currently empty: Push any existing local restaurants (e.g. Lamine Yamal) to Firestore!
+            try {
+              const localRests = loadFromStorage<Restaurant[]>('restaurants', []);
+              if (localRests && localRests.length > 0) {
+                localRests.forEach((r) => {
+                  if (r.id && r.name) {
+                    setDoc(doc(db, 'restaurants', r.id), r).catch((err) => {
+                      console.warn(`Could not upload existing restaurant ${r.name} to Firestore:`, err);
+                    });
+                  }
+                });
+              }
+            } catch (err) {}
+          }
+        },
+        (error) => {
+          console.warn('Could not listen to Firestore restaurants collection:', error);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn('Failed setting up restaurants onSnapshot:', e);
+    }
+  }, []);
+
+  // Sync MenuItems from Firestore collection ('menuItems') in real time
+  useEffect(() => {
+    try {
+      const unsubscribe = onSnapshot(
+        collection(db, 'menuItems'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const firestoreItems: MenuItem[] = [];
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as MenuItem;
+              if (data && data.name) {
+                firestoreItems.push({
+                  ...data,
+                  id: docSnap.id,
+                });
+              }
+            });
+
+            if (firestoreItems.length > 0) {
+              setMenuItems((prev) => {
+                const mergedMap = new Map<string, MenuItem>();
+                prev.forEach((m) => mergedMap.set(m.id, m));
+                firestoreItems.forEach((m) => mergedMap.set(m.id, m));
+                const mergedList = Array.from(mergedMap.values());
+                saveToStorage('menu_items', mergedList);
+                return mergedList;
+              });
+            }
+          } else {
+            // Firestore collection is currently empty: push existing local menu items to Firestore
+            try {
+              const localItems = loadFromStorage<MenuItem[]>('menu_items', []);
+              if (localItems && localItems.length > 0) {
+                localItems.forEach((item) => {
+                  if (item.id && item.name) {
+                    setDoc(doc(db, 'menuItems', item.id), item).catch((err) => {
+                      console.warn(`Could not upload existing menu item ${item.name} to Firestore:`, err);
+                    });
+                  }
+                });
+              }
+            } catch (err) {}
+          }
+        },
+        (error) => {
+          console.warn('Could not listen to Firestore menuItems collection:', error);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn('Failed setting up menuItems onSnapshot:', e);
+    }
   }, []);
 
   const isSuperAdmin = useCallback((email?: string | null): boolean => {
@@ -849,11 +962,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRestaurants((prev) =>
       prev.map((r) => {
         if (r.id !== restaurantId) return r;
-        return {
+        const updated = {
           ...r,
           bannerImage,
           ...(logoImage ? { logoImage } : {}),
         };
+        // Sync update to Firestore
+        try {
+          setDoc(doc(db, 'restaurants', restaurantId), updated, { merge: true }).catch((err) => {
+            console.warn('Could not sync restaurant cover to Firestore:', err);
+          });
+        } catch (e) {}
+        return updated;
       })
     );
   };
@@ -868,11 +988,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setRestaurants((prev) => [createdRest, ...prev]);
     setSelectedOwnerRestaurantId(id);
+
+    // Sync to Firestore immediately so it's accessible across accounts and devices
+    try {
+      setDoc(doc(db, 'restaurants', id), createdRest).catch((err) => {
+        console.warn('Could not save restaurant to Firestore:', err);
+      });
+    } catch (e) {
+      console.warn('Error initiating restaurant save to Firestore:', e);
+    }
+
     return createdRest;
   };
 
   const updateRestaurant = (updated: Restaurant) => {
     setRestaurants((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    try {
+      setDoc(doc(db, 'restaurants', updated.id), updated, { merge: true }).catch((err) => {
+        console.warn('Could not sync restaurant update to Firestore:', err);
+      });
+    } catch (e) {}
   };
 
   const addMenuItem = (newItemData: Omit<MenuItem, 'id'>): MenuItem => {
@@ -882,15 +1017,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id,
     };
     setMenuItems((prev) => [...prev, item]);
+
+    // Sync menu item to Firestore
+    try {
+      setDoc(doc(db, 'menuItems', id), item).catch((err) => {
+        console.warn('Could not sync menu item to Firestore:', err);
+      });
+    } catch (e) {}
+
     return item;
   };
 
   const updateMenuItem = (updated: MenuItem) => {
     setMenuItems((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    try {
+      setDoc(doc(db, 'menuItems', updated.id), updated, { merge: true }).catch((err) => {
+        console.warn('Could not sync updated menu item to Firestore:', err);
+      });
+    } catch (e) {}
   };
 
   const deleteMenuItem = (itemId: string) => {
     setMenuItems((prev) => prev.filter((item) => item.id !== itemId));
+    try {
+      deleteDoc(doc(db, 'menuItems', itemId)).catch((err) => {
+        console.warn('Could not delete menu item from Firestore:', err);
+      });
+    } catch (e) {}
   };
 
   const resetToDefaults = () => {

@@ -63,7 +63,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1000&auto=format&fit=crop&q=80',
       logoImage:
         'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&auto=format&fit=crop&q=80',
-      supportedDropSpotIds: ['spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5'],
+      supportedDropSpotIds: dropSpots.map((s) => s.id),
       mealWindows: [
         {
           id: 'mw-lunch',
@@ -255,13 +255,41 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         <div className="space-y-6">
           {/* Supported Drop Spots Configuration */}
           <div className="rounded-3xl bg-white p-6 border border-stone-200 space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-stone-900">
-                Designated Delivery Drop Spots
-              </h3>
-              <p className="text-xs text-stone-500">
-                Toggle authorized spots your delivery courier services with batch drops
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold text-stone-900">
+                  Designated Delivery Drop Spots ({currentRestaurant.supportedDropSpotIds.length} of {dropSpots.length} Active)
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Toggle authorized spots your delivery courier services with batch drops
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateRestaurant({
+                      ...currentRestaurant,
+                      supportedDropSpotIds: dropSpots.map((s) => s.id),
+                    })
+                  }
+                  className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-bold transition border border-amber-200"
+                >
+                  Select All Spots
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateRestaurant({
+                      ...currentRestaurant,
+                      supportedDropSpotIds: [],
+                    })
+                  }
+                  className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-lg font-medium transition"
+                >
+                  Clear All
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

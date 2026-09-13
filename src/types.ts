@@ -199,3 +199,20 @@ export interface RoleAssignment {
   assignedAt: string;
   assignedBy: string; // must be 'okiriae2004@gmail.com'
 }
+
+export interface PhoneAccount {
+  docId: string;
+  phone: string;
+  phoneDigits: string;
+  pin: string;
+  displayName: string;
+  uid: string;
+  email: string;
+  role: UserRole;
+  universityId: string;
+  universityName: string;
+  preferredDropSpotId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+}

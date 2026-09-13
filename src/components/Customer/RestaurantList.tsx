@@ -50,7 +50,7 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
         'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1000&auto=format&fit=crop&q=80',
       logoImage:
         'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&auto=format&fit=crop&q=80',
-      supportedDropSpotIds: ['spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5'],
+      supportedDropSpotIds: dropSpots.map((s) => s.id),
       mealWindows: [
         {
           id: 'mw-lunch',
@@ -280,24 +280,43 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
           </div>
         </div>
       ) : filteredRestaurants.length === 0 ? (
-        <div className="rounded-3xl border border-stone-200 bg-white p-12 text-center">
+        <div className="rounded-3xl border border-stone-200 bg-white p-8 sm:p-12 text-center">
           <div className="h-16 w-16 mx-auto rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
             <Filter className="h-8 w-8" />
           </div>
-          <h3 className="text-lg font-bold text-stone-900">No restaurants found</h3>
-          <p className="text-xs text-stone-500 max-w-sm mx-auto mt-1">
-            Try adjusting your search keywords, clearing cuisine filters, or selecting a different drop spot.
+          <h3 className="text-lg font-bold text-stone-900">
+            {restaurants.length > 0
+              ? `No restaurants delivering to ${currentSpot.name}`
+              : 'No restaurants found'}
+          </h3>
+          <p className="text-xs text-stone-500 max-w-md mx-auto mt-1 leading-relaxed">
+            {restaurants.length > 0 ? (
+              <>
+                You have {restaurants.length} active registered restaurant{restaurants.length > 1 ? 's' : ''}, but none are currently configured to drop at <strong>{currentSpot.name}</strong>. You can switch your pickup spot or reset your filters.
+              </>
+            ) : (
+              'Try adjusting your search keywords or clearing cuisine filters.'
+            )}
           </p>
-          <button
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedCuisine('All');
-              setOnlyOpenNow(false);
-            }}
-            className="mt-4 px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-semibold hover:bg-stone-800 transition"
-          >
-            Reset Filters
-          </button>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={onOpenSpotSelector}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold rounded-xl text-xs transition shadow-2xs flex items-center gap-1.5"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              <span>Change Pickup Spot</span>
+            </button>
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCuisine('All');
+                setOnlyOpenNow(false);
+              }}
+              className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold transition"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

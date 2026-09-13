@@ -29,45 +29,37 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    // Health check / connection test collection
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Phone & PIN Accounts Collection (Campus WhatsApp Number + 4-Digit Secret PIN)
+    match /phoneAccounts/{phoneId} {
+      allow read, write: if true;
+    }
+
     // Users Collection
     match /users/{userId} {
-      allow get: if isOwner(userId) || isSuperAdmin();
+      allow get: if true;
       allow list: if isSuperAdmin();
-      allow create: if isOwner(userId) 
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.email is string
-        && (isSuperAdmin() || request.resource.data.role == 'customer');
-      allow update: if (isOwner(userId)
-        && request.resource.data.uid == request.auth.uid
-        && (isSuperAdmin() || request.resource.data.role == resource.data.role))
-        || isSuperAdmin();
-      allow delete: if false;
+      allow create, update: if true;
+      allow delete: if isSuperAdmin();
     }
 
     // Orders Collection
     match /orders/{orderId} {
-      allow get: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || 
-        resource.data.restaurantOwnerId == request.auth.uid
-      );
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() 
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.total is number;
-      allow update: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || 
-        resource.data.restaurantOwnerId == request.auth.uid
-      );
+      allow get, list: if true;
+      allow create: if request.resource.data.total is number;
+      allow update: if true;
       allow delete: if false;
     }
 
     // Feedback Collection
     match /feedback/{feedbackId} {
       allow read: if true;
-      allow create: if isSignedIn() 
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.overallRating is number;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if request.resource.data.overallRating is number;
+      allow update: if true;
       allow delete: if false;
     }
 
@@ -75,6 +67,13 @@ service cloud.firestore {
     match /menuItems/{itemId} {
       allow read: if true;
       allow create, update, delete: if isSignedIn();
+    }
+
+    // Restaurants Collection (Publicly visible to all customers and accounts)
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
     }
   }
 }

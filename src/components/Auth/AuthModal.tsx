@@ -259,9 +259,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* Error Alert */}
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <span className="leading-relaxed">{errorMsg}</span>
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex flex-col gap-1.5">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+                <span className="leading-relaxed">{errorMsg}</span>
+              </div>
+              {mode === 'signin' && (errorMsg.includes('Register') || errorMsg.includes('No account found')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup');
+                    setErrorMsg(null);
+                  }}
+                  className="mt-1 self-start px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] transition shadow-xs cursor-pointer"
+                >
+                  Switch to Register (Create PIN) →
+                </button>
+              )}
             </div>
           )}
 

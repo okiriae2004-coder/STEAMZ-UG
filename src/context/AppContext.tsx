@@ -162,18 +162,21 @@ function saveToStorage<T>(key: string, value: T, scopedUserId?: string | null) {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [restaurants, setRestaurants] = useState<Restaurant[]>(() => {
-    const loaded = loadFromStorage('restaurants', INITIAL_RESTAURANTS);
-    // Clear out any old mock restaurants
-    return (loaded || []).filter(
-      (r: Restaurant) => !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5'].includes(r.id)
+    const loaded = loadFromStorage<Restaurant[]>('restaurants', []);
+    const valid = (loaded || []).filter(
+      (r: Restaurant) =>
+        !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(r.id)
     );
+    return valid;
   });
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
-    const loaded = loadFromStorage('menu_items', INITIAL_MENU_ITEMS);
-    // Clear out any old mock menu items
-    return (loaded || []).filter(
-      (m: MenuItem) => !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5'].includes(m.restaurantId)
+    const loaded = loadFromStorage<MenuItem[]>('menu_items', []);
+    const valid = (loaded || []).filter(
+      (m: MenuItem) =>
+        !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(m.restaurantId) &&
+        !m.id.startsWith('dish-')
     );
+    return valid;
   });
   const [universities] = useState<University[]>(UNIVERSITIES);
   const [selectedUniversityId, setSelectedUniversityIdState] = useState<string>(() =>
@@ -324,32 +327,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
 
             if (firestoreRestaurants.length > 0) {
-              setRestaurants((prev) => {
-                // Merge cloud restaurants with any local un-synced ones
-                const mergedMap = new Map<string, Restaurant>();
-                // First add local to keep any newly created
-                prev.forEach((r) => mergedMap.set(r.id, r));
-                // Overwrite / add from Firestore
-                firestoreRestaurants.forEach((r) => mergedMap.set(r.id, r));
-                const mergedList = Array.from(mergedMap.values());
-                saveToStorage('restaurants', mergedList);
-                return mergedList;
+              setRestaurants(() => {
+                const cleaned = firestoreRestaurants.filter(
+                  (r) =>
+                    !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(r.id)
+                );
+                saveToStorage('restaurants', cleaned);
+                return cleaned;
               });
             }
           } else {
-            // Firestore collection is currently empty: Push any existing local restaurants (e.g. Lamine Yamal) to Firestore!
-            try {
-              const localRests = loadFromStorage<Restaurant[]>('restaurants', []);
-              if (localRests && localRests.length > 0) {
-                localRests.forEach((r) => {
-                  if (r.id && r.name) {
-                    setDoc(doc(db, 'restaurants', r.id), r).catch((err) => {
-                      console.warn(`Could not upload existing restaurant ${r.name} to Firestore:`, err);
-                    });
-                  }
-                });
-              }
-            } catch (err) {}
+            // Firestore collection is currently empty
+            setRestaurants([]);
+            saveToStorage('restaurants', []);
           }
         },
         (error) => {
@@ -382,29 +372,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
 
             if (firestoreItems.length > 0) {
-              setMenuItems((prev) => {
-                const mergedMap = new Map<string, MenuItem>();
-                prev.forEach((m) => mergedMap.set(m.id, m));
-                firestoreItems.forEach((m) => mergedMap.set(m.id, m));
-                const mergedList = Array.from(mergedMap.values());
-                saveToStorage('menu_items', mergedList);
-                return mergedList;
+              setMenuItems(() => {
+                const cleaned = firestoreItems.filter(
+                  (m) =>
+                    !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(m.restaurantId) &&
+                    !m.id.startsWith('dish-')
+                );
+                saveToStorage('menu_items', cleaned);
+                return cleaned;
               });
             }
           } else {
-            // Firestore collection is currently empty: push existing local menu items to Firestore
-            try {
-              const localItems = loadFromStorage<MenuItem[]>('menu_items', []);
-              if (localItems && localItems.length > 0) {
-                localItems.forEach((item) => {
-                  if (item.id && item.name) {
-                    setDoc(doc(db, 'menuItems', item.id), item).catch((err) => {
-                      console.warn(`Could not upload existing menu item ${item.name} to Firestore:`, err);
-                    });
-                  }
-                });
-              }
-            } catch (err) {}
+            // Firestore collection is currently empty
+            setMenuItems([]);
+            saveToStorage('menu_items', []);
           }
         },
         (error) => {

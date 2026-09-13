@@ -54,10 +54,18 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
   const restaurantFeedbacks = feedbacks.filter((fb) => fb.restaurantId === restaurant.id);
 
   // Supported spots objects
-  const supportedSpots = dropSpots.filter((s) => restaurant.supportedDropSpotIds.includes(s.id));
+  const supportedSpots = dropSpots.filter(
+    (s) =>
+      !restaurant.supportedDropSpotIds ||
+      restaurant.supportedDropSpotIds.length === 0 ||
+      restaurant.supportedDropSpotIds.includes(s.id)
+  );
   const currentSelectedSpot = dropSpots.find((s) => s.id === selectedDropSpotId);
   const isCurrentSpotSupported =
-    selectedDropSpotId && restaurant.supportedDropSpotIds.includes(selectedDropSpotId);
+    !selectedDropSpotId ||
+    !restaurant.supportedDropSpotIds ||
+    restaurant.supportedDropSpotIds.length === 0 ||
+    restaurant.supportedDropSpotIds.includes(selectedDropSpotId);
 
   // Active meal window config for selected tab
   const currentWindowConfig = restaurant.mealWindows.find((w) => w.type === selectedMealWindowTab);

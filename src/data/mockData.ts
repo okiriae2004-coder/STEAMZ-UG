@@ -193,7 +193,7 @@ export const INITIAL_DROP_SPOTS: DropSpot[] = [
   },
 ];
 
-// Initial state is empty - Restaurant owners create restaurants and menus themselves
+// Only user-created restaurants and dishes are loaded (via Cloud Firestore)
 export const INITIAL_RESTAURANTS: Restaurant[] = [];
 
 export const INITIAL_MENU_ITEMS: MenuItem[] = [];

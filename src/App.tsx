@@ -56,12 +56,15 @@ function MainLayout() {
   const [selectedTrackingOrderId, setSelectedTrackingOrderId] = useState<string | null>(null);
   const [ownerActiveTab, setOwnerActiveTab] = useState<'analytics' | 'orders' | 'menu' | 'settings'>('menu');
 
-  // Sync user role from profile if signed in
+  // Sync user role and preferred spot from profile if signed in
   useEffect(() => {
     if (userProfile?.role) {
       setUserRole(userProfile.role);
     }
-  }, [userProfile?.role, setUserRole]);
+    if (userProfile?.preferredDropSpotId) {
+      setSelectedDropSpotId(userProfile.preferredDropSpotId);
+    }
+  }, [userProfile?.role, userProfile?.preferredDropSpotId, setUserRole, setSelectedDropSpotId]);
 
   // If a new order was placed and set to activeTrackingOrderId, open tracker
   useEffect(() => {

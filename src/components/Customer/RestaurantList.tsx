@@ -30,103 +30,11 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
     selectedDropSpotId,
     simulatedTime,
     setUserRole,
-    addRestaurant,
-    addMenuItem,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState<string>('All');
   const [onlyOpenNow, setOnlyOpenNow] = useState(false);
-
-  // Quick helper to seed a starter restaurant for instant testing if owner wants
-  const handleQuickSeedDemoKitchen = () => {
-    const created = addRestaurant({
-      name: 'Mama Bisi Kampala Grills & Pilau',
-      tagline: 'Smoky firewood pilau, spiced chicken & tender plantains',
-      description:
-        'Cooked fresh daily, kept piping hot in thermal insulation, and delivered ready-to-eat to campus locker spots.',
-      cuisine: ['Ugandan', 'Grills & BBQ', 'Pilau', 'Halal'],
-      bannerImage:
-        'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1000&auto=format&fit=crop&q=80',
-      logoImage:
-        'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&auto=format&fit=crop&q=80',
-      supportedDropSpotIds: dropSpots.map((s) => s.id),
-      mealWindows: [
-        {
-          id: 'mw-lunch',
-          type: 'lunch',
-          label: 'Lunch Window',
-          orderStartTime: '09:30',
-          orderCutoffTime: '12:00',
-          dropOffTime: '12:45',
-          description: 'Fresh lunch batch drop by 12:45 PM. Order before 12:00.',
-        },
-        {
-          id: 'mw-dinner',
-          type: 'dinner',
-          label: 'Evening Dinner',
-          orderStartTime: '16:00',
-          orderCutoffTime: '18:30',
-          dropOffTime: '19:15',
-          description: 'Hot dinner batch drop by 7:15 PM. Order before 6:30 PM.',
-        },
-      ],
-      prepTimeAvgMinutes: 10,
-      minOrderAmount: 10000,
-      ownerName: 'Chef Bisi Kampala',
-      ownerEmail: 'bisi@mamabisi.ug',
-      isOpen: true,
-    });
-
-    // Add 2 initial dishes
-    addMenuItem({
-      restaurantId: created.id,
-      name: 'Smoky Firewood Pilau & Grilled Quarter Chicken',
-      description:
-        'Ready-cooked aromatic spiced pilau rice with golden fried plantains (gonja) and flame-roasted chicken quarter.',
-      price: 15000,
-      category: 'Signature Dishes',
-      mealWindows: ['lunch', 'dinner'],
-      image:
-        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
-      calories: 740,
-      portionSize: 'Hearty Bowl (480g)',
-      prepTimeMinutes: 5,
-      dietary: ['halal'],
-      allergens: [],
-      isPopular: true,
-      isChefSpecial: true,
-      options: [
-        {
-          name: 'Extra Side',
-          required: false,
-          choices: [
-            { name: 'Extra Fried Gonja (Plantain)', price: 3000 },
-            { name: 'Fresh Kachumbari Salad', price: 2000 },
-            { name: 'Hard Boiled Egg with Chili', price: 2000 },
-          ],
-        },
-      ],
-    });
-
-    addMenuItem({
-      restaurantId: created.id,
-      name: 'Tender Nyama Choma Beef Skewer Box',
-      description:
-        'Cooked tender beef skewers seasoned with traditional herbs, served with sweet red onion rings and fresh lime wedges.',
-      price: 12000,
-      category: 'Grills & Bites',
-      mealWindows: ['lunch', 'dinner', 'snack'],
-      image:
-        'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&auto=format&fit=crop&q=80',
-      calories: 460,
-      portionSize: '3 Skewers Box',
-      prepTimeMinutes: 5,
-      dietary: ['halal', 'spicy'],
-      allergens: ['Peanuts'],
-      isPopular: true,
-    });
-  };
 
   // Collect unique cuisines
   const allCuisines = ['All', ...Array.from(new Set(restaurants.flatMap((r) => r.cuisine)))];
@@ -147,12 +55,17 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
 
     // Filter by selected drop spot: does this restaurant support this spot?
     const supportsSpot =
-      !selectedDropSpotId || restaurant.supportedDropSpotIds.includes(selectedDropSpotId);
+      !selectedDropSpotId ||
+      !restaurant.supportedDropSpotIds ||
+      restaurant.supportedDropSpotIds.length === 0 ||
+      restaurant.supportedDropSpotIds.includes(selectedDropSpotId);
 
     // Open now filter
-    const hasAnyOpenWindow = restaurant.mealWindows.some((w) =>
-      getWindowStatusBadge(w, simulatedTime).isOpen
-    );
+    const hasAnyOpenWindow =
+      restaurant.isOpen !== false &&
+      (!restaurant.mealWindows ||
+        restaurant.mealWindows.length === 0 ||
+        restaurant.mealWindows.some((w) => getWindowStatusBadge(w, simulatedTime).isOpen));
     const matchesOpen = !onlyOpenNow || hasAnyOpenWindow;
 
     return matchesSearch && matchesCuisine && supportsSpot && matchesOpen;
@@ -263,19 +176,12 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
           <p className="text-xs sm:text-sm text-stone-600 max-w-md mx-auto mt-2 leading-relaxed">
             All old demo restaurants have been erased. Restaurant owners can now register their restaurant, upload photos, and add each cooked food item and UGX price to their menu!
           </p>
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="mt-6 flex items-center justify-center">
             <button
               onClick={() => setUserRole('owner')}
               className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2"
             >
               <span>👨‍🍳 Go to Restaurant Owner Portal</span>
-            </button>
-            <button
-              onClick={handleQuickSeedDemoKitchen}
-              className="w-full sm:w-auto px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5"
-              title="1-click sample starter restaurant to test customer ordering"
-            >
-              <span>⚡ Quick-Start Sample Restaurant (1 Tap)</span>
             </button>
           </div>
         </div>

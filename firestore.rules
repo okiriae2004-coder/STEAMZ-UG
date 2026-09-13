@@ -65,15 +65,13 @@ service cloud.firestore {
 
     // Menu Items Collection
     match /menuItems/{itemId} {
-      allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow read, create, update, delete: if true;
     }
 
     // Restaurants Collection (Publicly visible to all customers and accounts)
     match /restaurants/{restaurantId} {
-      allow read: if true;
-      allow create, update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      allow read, create, update: if true;
+      allow delete: if true;
     }
   }
 }

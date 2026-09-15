@@ -79,9 +79,17 @@ function MainLayout() {
     // Pick the most recent active order belonging to current user
     const activeUid = currentUser?.uid || userProfile?.uid;
     const activeEmail = currentUser?.email || userProfile?.email;
+    const activePhone = userProfile?.whatsapp || userProfile?.phone || '';
+    const cleanPhone = (s?: string) => (s || '').replace(/\D/g, '').slice(-9);
+    const userPhoneDigits = cleanPhone(activePhone);
+
     const userOrders = orders.filter((o) => {
-      if (activeUid && o.userId) return o.userId === activeUid;
-      if (activeEmail && o.customerEmail) return o.customerEmail.toLowerCase() === activeEmail.toLowerCase();
+      if (activeUid && o.userId && o.userId === activeUid) return true;
+      if (activeEmail && o.customerEmail && o.customerEmail.toLowerCase() === activeEmail.toLowerCase()) return true;
+      if (userPhoneDigits && userPhoneDigits.length >= 7) {
+        if (cleanPhone(o.customerPhone) === userPhoneDigits) return true;
+        if (cleanPhone(o.customerWhatsapp) === userPhoneDigits) return true;
+      }
       return false;
     });
     const active = userOrders.find((o) => o.status !== 'collected' && o.status !== 'cancelled') || userOrders[0];

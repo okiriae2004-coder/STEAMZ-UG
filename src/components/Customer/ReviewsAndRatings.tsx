@@ -73,16 +73,25 @@ export const ReviewsAndRatings: React.FC<ReviewsAndRatingsProps> = ({
   }, [feedbacks, restaurant.id]);
 
   // 2. Identify customer's orders for this restaurant
+  const activeUid = currentUser?.uid || userProfile?.uid;
+  const activePhone = userProfile?.whatsapp || userProfile?.phone || '';
+  const cleanPhone = (s?: string) => (s || '').replace(/\D/g, '').slice(-9);
+  const userPhoneDigits = cleanPhone(activePhone);
+
   const customerOrdersForThisRest = useMemo(() => {
     return orders.filter((o) => {
       if (o.restaurantId !== restaurant.id) return false;
-      if (currentUser?.uid && o.userId === currentUser.uid) return true;
+      if (activeUid && o.userId === activeUid) return true;
       if (userEmail && o.customerEmail?.toLowerCase() === userEmail.toLowerCase()) return true;
+      if (userPhoneDigits && userPhoneDigits.length >= 7) {
+        if (cleanPhone(o.customerPhone) === userPhoneDigits) return true;
+        if (cleanPhone(o.customerWhatsapp) === userPhoneDigits) return true;
+      }
       // Fallback for orders created in current local session before logging in
-      if (!o.userId && !currentUser) return true;
+      if (!o.userId && !currentUser && !userProfile) return true;
       return false;
     });
-  }, [orders, restaurant.id, currentUser, userEmail]);
+  }, [orders, restaurant.id, activeUid, currentUser, userProfile, userEmail, userPhoneDigits]);
 
   // Successfully delivered orders (eligible for reviews)
   const deliveredOrders = useMemo(() => {

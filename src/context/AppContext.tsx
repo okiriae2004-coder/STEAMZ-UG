@@ -13,7 +13,7 @@ import {
   RoleAssignment,
   SUPER_ADMIN_EMAIL,
 } from '../types';
-import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -227,22 +227,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [orders, setOrders] = useState<Order[]>(() => {
     const currentUid = getActiveUserId();
-    // Clean up any legacy unscoped orders key from old sessions so it doesn't leak
-    try {
-      if (typeof window !== 'undefined' && localStorage.getItem('steamz_v4_orders')) {
-        localStorage.removeItem('steamz_v4_orders');
+    const loadedGlobal = loadFromStorage<Order[]>('orders', []);
+    const loadedUser = currentUid ? loadFromStorage<Order[]>('orders', [], currentUid) : [];
+    const combined = [...loadedGlobal, ...loadedUser];
+    const seen = new Set<string>();
+    const valid: Order[] = [];
+    for (const o of combined) {
+      if (o && o.id && !seen.has(o.id) && !['ord-101', 'ord-102', 'ord-103'].includes(o.id)) {
+        seen.add(o.id);
+        valid.push(o);
       }
-    } catch {}
-
-    // If no user is logged in, orders MUST be empty
-    if (!currentUid) {
-      return [];
     }
-
-    const loaded = loadFromStorage('orders', INITIAL_ORDERS, currentUid);
-    return (loaded || []).filter(
-      (o: Order) => !['ord-101', 'ord-102', 'ord-103'].includes(o.id)
-    );
+    return valid;
   });
   const [feedbacks, setFeedbacks] = useState<Feedback[]>(() =>
     loadFromStorage('feedbacks', INITIAL_FEEDBACKS)
@@ -399,6 +395,93 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  // Sync Orders from Cloud Firestore ('orders' collection) in real-time across all browsers & devices
+  useEffect(() => {
+    try {
+      // 1. Auto-upload any local orders stored on this browser that are not yet in Cloud Firestore
+      try {
+        const localFoundOrders: Order[] = [];
+        const seenIds = new Set<string>();
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.includes('orders') || k.includes('steamz_v4_orders') || k.includes('_orders'))) {
+            try {
+              const raw = localStorage.getItem(k);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  parsed.forEach((item) => {
+                    if (
+                      item &&
+                      item.id &&
+                      typeof item.id === 'string' &&
+                      item.id.startsWith('ord-') &&
+                      !['ord-101', 'ord-102', 'ord-103'].includes(item.id) &&
+                      item.orderNumber &&
+                      !seenIds.has(item.id)
+                    ) {
+                      seenIds.add(item.id);
+                      localFoundOrders.push(item);
+                    }
+                  });
+                }
+              }
+            } catch (e) {}
+          }
+        }
+        if (localFoundOrders.length > 0) {
+          localFoundOrders.forEach((localOrder) => {
+            setDoc(doc(db, 'orders', localOrder.id), localOrder, { merge: true }).catch((err) => {
+              console.warn('[STEAMZ Orders] Could not sync local order to Firestore:', err);
+            });
+          });
+        }
+      } catch (e) {}
+
+      // 2. Real-time onSnapshot listener for all orders
+      const unsubscribe = onSnapshot(
+        collection(db, 'orders'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const firestoreOrders: Order[] = [];
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as Order;
+              if (
+                data &&
+                data.id &&
+                !['ord-101', 'ord-102', 'ord-103'].includes(data.id)
+              ) {
+                firestoreOrders.push(data);
+              }
+            });
+
+            // Sort newest first
+            firestoreOrders.sort((a, b) => {
+              const tA = new Date(a.createdAt || 0).getTime();
+              const tB = new Date(b.createdAt || 0).getTime();
+              return tB - tA;
+            });
+
+            setOrders(firestoreOrders);
+            saveToStorage('orders', firestoreOrders);
+          } else {
+            // Firestore has 0 orders right now, clean state of any demo orders
+            setOrders((prev) =>
+              prev.filter((o) => !['ord-101', 'ord-102', 'ord-103'].includes(o.id))
+            );
+          }
+        },
+        (error) => {
+          console.warn('Could not listen to Firestore orders collection:', error);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn('Failed setting up orders onSnapshot:', e);
+    }
+  }, []);
+
   const isSuperAdmin = useCallback((email?: string | null): boolean => {
     if (!email) return false;
     return email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
@@ -468,13 +551,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleUserSwitch = (newUid: string | null) => {
       setActiveUserId((prevUid) => {
         if (prevUid !== newUid) {
-          // User changed! Reload the cart & orders for the new user
+          // User changed! Reload the cart for the new user
           const newCart = newUid ? loadFromStorage('cart', [], newUid) : [];
           setCart(newCart);
-          const newOrders = newUid ? loadFromStorage('orders', INITIAL_ORDERS, newUid) : [];
-          setOrders((newOrders || []).filter(
-            (o: Order) => !['ord-101', 'ord-102', 'ord-103'].includes(o.id)
-          ));
           return newUid;
         }
         return prevUid;
@@ -633,6 +712,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => saveToStorage('drop_spots', dropSpots), [dropSpots]);
   useEffect(() => saveToStorage('admins', admins), [admins]);
   useEffect(() => {
+    saveToStorage('orders', orders);
     if (activeUserId) {
       saveToStorage('orders', orders, activeUserId);
     }
@@ -825,13 +905,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       feedbackGiven: false,
     };
 
-    setOrders((prev) => [newOrder, ...prev]);
+    setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
     clearCart();
     setActiveTrackingOrderId(newOrder.id);
+
+    // Persist immediately to Cloud Firestore so all other devices and restaurant owner portal see it in real-time
+    setDoc(doc(db, 'orders', newOrder.id), newOrder).catch((err) => {
+      console.error('[STEAMZ] Failed to persist order to Cloud Firestore:', err);
+    });
+
     return newOrder;
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus, note?: string) => {
+    let updatedOrder: Order | null = null;
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id !== orderId) return order;
@@ -852,13 +939,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           note: note || defaultNotes[status],
         };
 
-        return {
+        const updated = {
           ...order,
           status,
           statusHistory: [...order.statusHistory, newEvent],
         };
+        updatedOrder = updated;
+        return updated;
       })
     );
+
+    // Sync updated status to Cloud Firestore
+    if (updatedOrder) {
+      setDoc(doc(db, 'orders', orderId), updatedOrder, { merge: true }).catch((err) => {
+        console.warn('[STEAMZ] Could not sync updated order status to Firestore:', err);
+      });
+    }
   };
 
   const batchUpdateOrdersStatus = (orderIds: string[], status: OrderStatus, note?: string) => {
@@ -874,21 +970,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setFeedbacks((prev) => [newFeedback, ...prev]);
 
-    // Mark order as feedbackGiven
+    // Mark order as feedbackGiven locally
     setOrders((prev) =>
       prev.map((ord) =>
         ord.id === feedbackData.orderId ? { ...ord, feedbackGiven: true } : ord
       )
     );
 
-    // Save to Firestore if signed in
-    if (auth.currentUser) {
-      setDoc(doc(db, 'feedback', newFeedback.id), {
-        ...newFeedback,
-        userId: auth.currentUser.uid,
-      }).catch((err) => {
-        console.warn('Could not sync feedback to Firestore:', err);
-      });
+    // Save feedback to Firestore
+    setDoc(doc(db, 'feedback', newFeedback.id), newFeedback).catch((err) => {
+      console.warn('Could not sync feedback to Firestore:', err);
+    });
+
+    // Mark order as feedbackGiven in Firestore
+    if (feedbackData.orderId) {
+      setDoc(doc(db, 'orders', feedbackData.orderId), { feedbackGiven: true }, { merge: true }).catch(() => {});
     }
 
     // Update restaurant rating

@@ -65,11 +65,19 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Count active orders for current user only
   const activeUid = currentUser?.uid || userProfile?.uid;
+  const activePhone = userProfile?.whatsapp || userProfile?.phone || '';
+  const cleanPhone = (s?: string) => (s || '').replace(/\D/g, '').slice(-9);
+  const userPhoneDigits = cleanPhone(activePhone);
+
   const activeOrders = orders.filter((o) => {
     if (o.status === 'collected' || o.status === 'cancelled') return false;
     if (!isAuthenticated) return false;
-    if (activeUid && o.userId) return o.userId === activeUid;
-    if (activeEmail && o.customerEmail) return o.customerEmail.toLowerCase() === activeEmail.toLowerCase();
+    if (activeUid && o.userId && o.userId === activeUid) return true;
+    if (activeEmail && o.customerEmail && o.customerEmail.toLowerCase() === activeEmail.toLowerCase()) return true;
+    if (userPhoneDigits && userPhoneDigits.length >= 7) {
+      if (cleanPhone(o.customerPhone) === userPhoneDigits) return true;
+      if (cleanPhone(o.customerWhatsapp) === userPhoneDigits) return true;
+    }
     return false;
   });
 

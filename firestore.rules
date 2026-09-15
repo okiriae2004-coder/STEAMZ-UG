@@ -49,10 +49,8 @@ service cloud.firestore {
 
     // Orders Collection
     match /orders/{orderId} {
-      allow get, list: if true;
-      allow create: if request.resource.data.total is number;
-      allow update: if true;
-      allow delete: if false;
+      allow read, create, update: if true;
+      allow delete: if isSuperAdmin();
     }
 
     // Feedback Collection

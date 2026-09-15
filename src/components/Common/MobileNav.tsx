@@ -43,12 +43,20 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   const isAuthenticated = Boolean(currentUser || userProfile);
   const activeUid = currentUser?.uid || userProfile?.uid;
   const activeEmail = currentUser?.email || userProfile?.email;
+  const activePhone = userProfile?.whatsapp || userProfile?.phone || '';
+  const cleanPhone = (s?: string) => (s || '').replace(/\D/g, '').slice(-9);
+  const userPhoneDigits = cleanPhone(activePhone);
+
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeOrdersCount = orders.filter((o) => {
     if (o.status === 'collected' || o.status === 'cancelled') return false;
     if (!isAuthenticated) return false;
-    if (activeUid && o.userId) return o.userId === activeUid;
-    if (activeEmail && o.customerEmail) return o.customerEmail.toLowerCase() === activeEmail.toLowerCase();
+    if (activeUid && o.userId && o.userId === activeUid) return true;
+    if (activeEmail && o.customerEmail && o.customerEmail.toLowerCase() === activeEmail.toLowerCase()) return true;
+    if (userPhoneDigits && userPhoneDigits.length >= 7) {
+      if (cleanPhone(o.customerPhone) === userPhoneDigits) return true;
+      if (cleanPhone(o.customerWhatsapp) === userPhoneDigits) return true;
+    }
     return false;
   }).length;
 

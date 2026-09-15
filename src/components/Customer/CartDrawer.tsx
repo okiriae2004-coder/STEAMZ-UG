@@ -82,14 +82,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   // Filter orders strictly to active user. If not logged in, show no orders.
   const activeUid = userProfile?.uid || currentUser?.uid;
   const activeEmail = userProfile?.email?.toLowerCase() || currentUser?.email?.toLowerCase() || '';
+  const activePhone = userProfile?.whatsapp || userProfile?.phone || '';
   const isAuthenticated = Boolean(currentUser || userProfile);
+
+  const cleanPhone = (s?: string) => (s || '').replace(/\D/g, '').slice(-9);
+  const userPhoneDigits = cleanPhone(activePhone);
+
   const myOrders = orders.filter((o) => {
     if (!isAuthenticated) return false;
-    if (activeUid && o.userId) {
-      return o.userId === activeUid;
-    }
-    if (activeEmail && o.customerEmail) {
-      return o.customerEmail.toLowerCase() === activeEmail;
+    if (activeUid && o.userId && o.userId === activeUid) return true;
+    if (activeEmail && o.customerEmail && o.customerEmail.toLowerCase() === activeEmail) return true;
+    if (userPhoneDigits && userPhoneDigits.length >= 7) {
+      if (cleanPhone(o.customerPhone) === userPhoneDigits) return true;
+      if (cleanPhone(o.customerWhatsapp) === userPhoneDigits) return true;
     }
     return false;
   });

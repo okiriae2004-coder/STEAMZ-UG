@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { RestaurantAnalytics } from './RestaurantAnalytics';
 import { LiveOrdersBoard } from './LiveOrdersBoard';
 import { MenuManager } from './MenuManager';
@@ -11,10 +12,6 @@ import {
   UtensilsCrossed,
   Settings,
   Plus,
-  Clock,
-  MapPin,
-  CheckCircle2,
-  AlertCircle,
 } from 'lucide-react';
 import { formatTime12h } from '../../utils/timeUtils';
 
@@ -35,7 +32,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     updateRestaurant,
     addRestaurant,
     addMenuItem,
+    roleAssignments,
+    isSuperAdmin,
+    hasAdminPrivilege,
   } = useApp();
+
+  const { currentUser, userProfile } = useAuth();
 
   const [internalTab, setInternalTab] = useState<'analytics' | 'orders' | 'menu' | 'settings'>(
     'menu'
@@ -48,11 +50,64 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setInternalTab(tab);
   };
 
-  // Active restaurant
+  // Current user email (Firebase Auth or local session profile)
+  const currentEmail = (
+    currentUser?.email ||
+    userProfile?.email ||
+    ''
+  )
+    .trim()
+    .toLowerCase();
+
+  const isAdminUser = isSuperAdmin(currentEmail) || hasAdminPrivilege(currentEmail);
+
+  // Only show restaurants this owner is allowed to manage.
+  // Admins see everything. Regular owners only see restaurants where:
+  // 1) restaurant.ownerEmail matches their email, OR
+  // 2) a roleAssignment for their email points to that restaurantId
+  const myRestaurants = useMemo(() => {
+    if (isAdminUser) return restaurants;
+
+    if (!currentEmail) return [];
+
+    const assignedRestaurantIds = new Set(
+      roleAssignments
+        .filter(
+          (r) =>
+            r.role === 'owner' &&
+            r.email.toLowerCase() === currentEmail &&
+            r.restaurantId
+        )
+        .map((r) => r.restaurantId as string)
+    );
+
+    return restaurants.filter((r) => {
+      const ownerEmailMatch =
+        r.ownerEmail && r.ownerEmail.trim().toLowerCase() === currentEmail;
+      const assignmentMatch = assignedRestaurantIds.has(r.id);
+      return ownerEmailMatch || assignmentMatch;
+    });
+  }, [restaurants, roleAssignments, currentEmail, isAdminUser]);
+
+  // Keep selected restaurant inside the allowed list
+  useEffect(() => {
+    if (myRestaurants.length === 0) return;
+
+    const stillValid = myRestaurants.some((r) => r.id === selectedOwnerRestaurantId);
+    if (!stillValid) {
+      setSelectedOwnerRestaurantId(myRestaurants[0].id);
+    }
+  }, [myRestaurants, selectedOwnerRestaurantId, setSelectedOwnerRestaurantId]);
+
+  // Active restaurant (always from the scoped list)
   const currentRestaurant =
-    restaurants.find((r) => r.id === selectedOwnerRestaurantId) || restaurants[0];
+    myRestaurants.find((r) => r.id === selectedOwnerRestaurantId) || myRestaurants[0];
 
   const handleQuickSeedDemoKitchen = () => {
+    const ownerDisplayName =
+      userProfile?.displayName || currentUser?.displayName || 'Partner Chef';
+    const ownerEmailToUse = currentEmail || 'partner@steamz.delivery';
+
     const created = addRestaurant({
       name: 'Mama Bisi Kampala Grills & Pilau',
       tagline: 'Smoky firewood pilau, spiced chicken & tender plantains',
@@ -86,8 +141,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       ],
       prepTimeAvgMinutes: 10,
       minOrderAmount: 10000,
-      ownerName: 'Chef Bisi Kampala',
-      ownerEmail: 'bisi@mamabisi.ug',
+      ownerName: ownerDisplayName,
+      ownerEmail: ownerEmailToUse,
       isOpen: true,
     });
 
@@ -124,6 +179,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     handleTabSelect('menu');
   };
 
+  // Empty state: no restaurants this user owns (or none exist yet)
   if (!currentRestaurant) {
     return (
       <div className="space-y-6">
@@ -136,7 +192,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           </span>
           <h2 className="text-2xl font-black text-stone-900 mt-3">Register Your Restaurant</h2>
           <p className="text-xs sm:text-sm text-stone-600 mt-2 max-w-md mx-auto leading-relaxed">
-            All previous mock restaurants have been removed as requested. You can now create your restaurant, upload photos of your place and dishes, set your Ugandan Shilling (UGX) prices, and receive scheduled batch orders for smart drop spots.
+            {currentEmail
+              ? `Signed in as ${currentEmail}. Create your restaurant profile to start receiving batch orders for campus drop spots.`
+              : 'Sign in first, then create your restaurant, set UGX prices, and receive scheduled batch orders for smart drop spots.'}
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -157,7 +215,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           </div>
         </div>
 
-        {/* Modal rendered in empty state as well! */}
         <AddRestaurantModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
@@ -193,19 +250,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           </div>
         </div>
 
-        {/* Restaurant selector & Add button */}
+        {/* Restaurant selector (only owned restaurants) & Add button */}
         <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={currentRestaurant.id}
-            onChange={(e) => setSelectedOwnerRestaurantId(e.target.value)}
-            className="text-xs font-bold bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 focus:ring-2 focus:ring-amber-500"
-          >
-            {restaurants.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+          {myRestaurants.length > 1 && (
+            <select
+              value={currentRestaurant.id}
+              onChange={(e) => setSelectedOwnerRestaurantId(e.target.value)}
+              className="text-xs font-bold bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-800 focus:ring-2 focus:ring-amber-500"
+            >
+              {myRestaurants.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -258,7 +317,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold text-stone-900">
-                  Designated Delivery Drop Spots ({currentRestaurant.supportedDropSpotIds.length} of {dropSpots.length} Active)
+                  Designated Delivery Drop Spots ({currentRestaurant.supportedDropSpotIds.length} of{' '}
+                  {dropSpots.length} Active)
                 </h3>
                 <p className="text-xs text-stone-500">
                   Toggle authorized spots your delivery courier services with batch drops
@@ -346,7 +406,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             </div>
 
             <div className="space-y-3">
-              {currentRestaurant.mealWindows.map((win, idx) => (
+              {currentRestaurant.mealWindows.map((win) => (
                 <div
                   key={win.id}
                   className="p-4 rounded-2xl border border-stone-200 bg-stone-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"

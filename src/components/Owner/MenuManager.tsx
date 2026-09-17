@@ -194,31 +194,41 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ restaurant }) => {
     }
 
     const finalCategory = customCategoryInput.trim() !== '' ? customCategoryInput.trim() : category;
-    const parsedPrice = parseFloat(price) || 12.0;
+    const parsedPrice = parseFloat(price) || 5000;
     const parsedCal = calories ? parseInt(calories, 10) : undefined;
     const parsedPrep = prepTimeMinutes ? parseInt(prepTimeMinutes, 10) : undefined;
 
-    const nutritionalInfo = {
-      calories: parsedCal,
-      proteinGrams: protein ? parseInt(protein, 10) : undefined,
-      carbsGrams: carbs ? parseInt(carbs, 10) : undefined,
-      fatGrams: fat ? parseInt(fat, 10) : undefined,
-    };
+    const hasNutritionalInfo = Boolean(parsedCal || protein || carbs || fat);
+    const nutritionalInfo = hasNutritionalInfo
+      ? {
+          ...(parsedCal !== undefined && { calories: parsedCal }),
+          ...(protein ? { proteinGrams: parseInt(protein, 10) } : {}),
+          ...(carbs ? { carbsGrams: parseInt(carbs, 10) } : {}),
+          ...(fat ? { fatGrams: parseInt(fat, 10) } : {}),
+        }
+      : undefined;
+
+    const activeMealWindows =
+      selectedWindows.length > 0
+        ? selectedWindows
+        : restaurant.mealWindows && restaurant.mealWindows.length > 0
+        ? (restaurant.mealWindows.map((w) => w.type) as MealWindowType[])
+        : (['lunch', 'dinner'] as MealWindowType[]);
 
     const itemData: Omit<MenuItem, 'id'> = {
       restaurantId: restaurant.id,
-      name,
-      description,
+      name: name.trim(),
+      description: description.trim(),
       price: parsedPrice,
       category: finalCategory,
-      portionSize,
+      portionSize: portionSize.trim() || undefined,
       prepTimeMinutes: parsedPrep,
       isPopular,
       isChefSpecial,
-      mealWindows: selectedWindows.length > 0 ? selectedWindows : ['lunch'],
+      mealWindows: activeMealWindows,
       dietary,
       allergens,
-      image,
+      image: image.trim() || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
       calories: parsedCal,
       nutritionalInfo,
       options: options.length > 0 ? options : undefined,

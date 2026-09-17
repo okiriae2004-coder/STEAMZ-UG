@@ -6,10 +6,12 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with experimentalForceLongPolling to avoid connection dropouts in browser/proxy sandboxes
+// ignoreUndefinedProperties allows writing objects with optional/undefined fields without throwing errors
 export const db = initializeFirestore(
   app,
   {
     experimentalForceLongPolling: true,
+    ignoreUndefinedProperties: true,
   },
   firebaseConfig.firestoreDatabaseId
 );

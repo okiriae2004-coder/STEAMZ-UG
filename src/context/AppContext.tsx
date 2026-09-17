@@ -160,12 +160,27 @@ function saveToStorage<T>(key: string, value: T, scopedUserId?: string | null) {
   }
 }
 
+// Helper to remove undefined properties before saving to Firestore
+const cleanForFirestore = <T extends Record<string, any>>(obj: T): T => {
+  const cleaned: Record<string, any> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+        cleaned[key] = cleanForFirestore(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  }
+  return cleaned as T;
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [restaurants, setRestaurants] = useState<Restaurant[]>(() => {
     const loaded = loadFromStorage<Restaurant[]>('restaurants', []);
     const valid = (loaded || []).filter(
       (r: Restaurant) =>
-        !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(r.id)
+        !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5'].includes(r.id)
     );
     return valid;
   });
@@ -173,8 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loaded = loadFromStorage<MenuItem[]>('menu_items', []);
     const valid = (loaded || []).filter(
       (m: MenuItem) =>
-        !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(m.restaurantId) &&
-        !m.id.startsWith('dish-')
+        !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5'].includes(m.restaurantId)
     );
     return valid;
   });
@@ -325,8 +339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (firestoreRestaurants.length > 0) {
               setRestaurants(() => {
                 const cleaned = firestoreRestaurants.filter(
-                  (r) =>
-                    !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(r.id)
+                  (r) => !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5'].includes(r.id)
                 );
                 saveToStorage('restaurants', cleaned);
                 return cleaned;
@@ -370,9 +383,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (firestoreItems.length > 0) {
               setMenuItems(() => {
                 const cleaned = firestoreItems.filter(
-                  (m) =>
-                    !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5', 'rest-lamine-yamal', 'rest-mama-bisi', 'rest-kiu-diner'].includes(m.restaurantId) &&
-                    !m.id.startsWith('dish-')
+                  (m) => !['rest-1', 'rest-2', 'rest-3', 'rest-4', 'rest-5'].includes(m.restaurantId)
                 );
                 saveToStorage('menu_items', cleaned);
                 return cleaned;
@@ -1079,12 +1090,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateRestaurant = (updated: Restaurant) => {
-    setRestaurants((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    setRestaurants((prev) => {
+      const next = prev.map((r) => (r.id === updated.id ? updated : r));
+      saveToStorage('restaurants', next);
+      return next;
+    });
     try {
-      setDoc(doc(db, 'restaurants', updated.id), updated, { merge: true }).catch((err) => {
+      const sanitized = cleanForFirestore(updated);
+      setDoc(doc(db, 'restaurants', updated.id), sanitized, { merge: true }).catch((err) => {
         console.warn('Could not sync restaurant update to Firestore:', err);
       });
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Error updating restaurant in Firestore:', e);
+    }
   };
 
   const addMenuItem = (newItemData: Omit<MenuItem, 'id'>): MenuItem => {
@@ -1093,34 +1111,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...newItemData,
       id,
     };
-    setMenuItems((prev) => [...prev, item]);
+    setMenuItems((prev) => {
+      const next = [...prev, item];
+      saveToStorage('menu_items', next);
+      return next;
+    });
 
-    // Sync menu item to Firestore
+    // Sync menu item to Firestore with sanitized fields
     try {
-      setDoc(doc(db, 'menuItems', id), item).catch((err) => {
+      const sanitized = cleanForFirestore(item);
+      setDoc(doc(db, 'menuItems', id), sanitized).catch((err) => {
         console.warn('Could not sync menu item to Firestore:', err);
       });
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Error saving menu item to Firestore:', e);
+    }
 
     return item;
   };
 
   const updateMenuItem = (updated: MenuItem) => {
-    setMenuItems((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    setMenuItems((prev) => {
+      const next = prev.map((item) => (item.id === updated.id ? updated : item));
+      saveToStorage('menu_items', next);
+      return next;
+    });
     try {
-      setDoc(doc(db, 'menuItems', updated.id), updated, { merge: true }).catch((err) => {
+      const sanitized = cleanForFirestore(updated);
+      setDoc(doc(db, 'menuItems', updated.id), sanitized, { merge: true }).catch((err) => {
         console.warn('Could not sync updated menu item to Firestore:', err);
       });
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Error updating menu item in Firestore:', e);
+    }
   };
 
   const deleteMenuItem = (itemId: string) => {
-    setMenuItems((prev) => prev.filter((item) => item.id !== itemId));
+    setMenuItems((prev) => {
+      const next = prev.filter((item) => item.id !== itemId);
+      saveToStorage('menu_items', next);
+      return next;
+    });
     try {
       deleteDoc(doc(db, 'menuItems', itemId)).catch((err) => {
         console.warn('Could not delete menu item from Firestore:', err);
       });
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Error deleting menu item from Firestore:', e);
+    }
   };
 
   const resetToDefaults = () => {

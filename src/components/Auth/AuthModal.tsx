@@ -15,7 +15,6 @@ import {
   MessageSquare,
   ShieldCheck,
   KeyRound,
-  Mail,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -34,7 +33,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     registerWithPhoneAndPin,
     loginWithEmail,
     signupWithEmail,
-    signInWithGoogle,
     loginAsDemoUser,
   } = useAuth();
 
@@ -48,9 +46,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   } = useApp();
 
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
-  // Default to pure WhatsApp Number + PIN!
   const [authMethod, setAuthMethod] = useState<'whatsapp' | 'email'>('whatsapp');
-  
+
   // WhatsApp + PIN credentials
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
@@ -58,8 +55,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [displayName, setDisplayName] = useState('');
   const [universityId, setUniversityId] = useState<string>(selectedUniversityId || 'kiu-western');
   const [preferredDropSpotId, setPreferredDropSpotId] = useState<string>('spot-kiu-eng');
-  
-  // Email credentials (optional fallback)
+
+  // Email credentials
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -69,7 +66,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Filter spots by university
   const universitySpots = dropSpots.filter((s) => s.universityId === universityId);
   const campusCompoundSpots = universitySpots.filter((s) => s.isCampusCompound);
   const outsideCampusSpots = universitySpots.filter((s) => !s.isCampusCompound);
@@ -120,7 +116,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setSelectedUniversityId(universityId);
         setSelectedDropSpotId(preferredDropSpotId);
       }
-      setUserRole('customer');
+      // Do NOT force 'customer' – let approved owners land on Owner Dashboard
       onClose();
     } catch (err: any) {
       console.error('WhatsApp Auth Error:', err);
@@ -130,7 +126,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // Email / Password Fallback Submit Handler
+  // Email / Password Submit Handler
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -157,7 +153,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setSelectedUniversityId(universityId);
         setSelectedDropSpotId(preferredDropSpotId);
       }
-      setUserRole('customer');
+      // Do NOT force 'customer' – let approved owners land on Owner Dashboard
       onClose();
     } catch (err: any) {
       console.error('Email Auth Error:', err);
@@ -215,7 +211,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </p>
           </div>
 
-          {/* Mode Switcher (Sign In vs Register) */}
+          {/* Mode Switcher */}
           <div className="flex rounded-xl bg-stone-100 p-1 border border-stone-200">
             <button
               type="button"
@@ -307,7 +303,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type={mode === 'signin' ? 'text' : 'tel'}
                     required
-                    placeholder={mode === 'signin' ? "0771 234 567 or student@gmail.com" : "0771 234 567 or 0700 123 456"}
+                    placeholder={mode === 'signin' ? '0771 234 567 or student@gmail.com' : '0771 234 567 or 0700 123 456'}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-xs bg-white font-medium border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
@@ -411,7 +407,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <div>
                       <span className="font-bold text-stone-800 block">Student & Eater Account</span>
                       <span className="text-stone-500 text-[10px] leading-tight block mt-0.5">
-                        New accounts are registered as customers. Admin and Kitchen tags are strictly managed by <strong className="text-stone-700">okiriae2004@gmail.com</strong>.
+                        New accounts are registered as customers. Admin and Kitchen tags are strictly managed by{' '}
+                        <strong className="text-stone-700">okiriae2004@gmail.com</strong>.
                       </span>
                     </div>
                   </div>
@@ -430,20 +427,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <>
                     <KeyRound className="h-4 w-4" />
                     <span>
-                      {mode === 'signin' ? 'Sign In with WhatsApp & PIN' : 'Complete Registration with WhatsApp & PIN'}
+                      {mode === 'signin'
+                        ? 'Sign In with WhatsApp & PIN'
+                        : 'Complete Registration with WhatsApp & PIN'}
                     </span>
                   </>
                 )}
               </button>
             </form>
           ) : (
-            /* EMAIL / PASSWORD FORM (OPTIONAL) */
+            /* EMAIL / PASSWORD FORM */
             <form onSubmit={handleEmailSubmit} className="space-y-3">
               {mode === 'signup' && (
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Full Name
-                  </label>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">Full Name</label>
                   <div className="relative">
                     <User className="h-4 w-4 text-stone-400 absolute left-3 top-2.5" />
                     <input
@@ -459,26 +456,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="h-4 w-4 text-stone-400 absolute left-3 top-2.5" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="student@kiu.ac.ug or personal@gmail.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-xs border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                  />
-                </div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Password
-                </label>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">Password</label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -488,6 +478,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 

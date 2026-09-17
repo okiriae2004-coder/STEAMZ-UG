@@ -288,27 +288,31 @@ export const Header: React.FC<HeaderProps> = ({
                           <span>Customer View</span>
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setUserRole('owner');
-                            setIsProfileMenuOpen(false);
-                          }}
-                          className="w-full text-left px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50 rounded-lg flex items-center gap-2"
-                        >
-                          <Store className="h-3.5 w-3.5 text-stone-400" />
-                          <span>Partner Restaurant Hub</span>
-                        </button>
+                        {canOwner && (
+                          <button
+                            onClick={() => {
+                              setUserRole('owner');
+                              setIsProfileMenuOpen(false);
+                            }}
+                            className="w-full text-left px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50 rounded-lg flex items-center gap-2"
+                          >
+                            <Store className="h-3.5 w-3.5 text-amber-600" />
+                            <span>Partner Restaurant Hub</span>
+                          </button>
+                        )}
 
-                        <button
-                          onClick={() => {
-                            setUserRole('admin');
-                            setIsProfileMenuOpen(false);
-                          }}
-                          className="w-full text-left px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50 rounded-lg flex items-center gap-2"
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5 text-stone-400" />
-                          <span>Admin Spot Photos Hub</span>
-                        </button>
+                        {canAdmin && (
+                          <button
+                            onClick={() => {
+                              setUserRole('admin');
+                              setIsProfileMenuOpen(false);
+                            }}
+                            className="w-full text-left px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50 rounded-lg flex items-center gap-2"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5 text-stone-800" />
+                            <span>Admin Spot Photos Hub</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={async () => {

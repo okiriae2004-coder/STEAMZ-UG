@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { DropSpot, SUPER_ADMIN_EMAIL } from '../../types';
+import { MemberPinManager } from './MemberPinManager';
 import {
   Shield,
   MapPin,
@@ -21,6 +22,7 @@ import {
   Lock,
   Trash2,
   AlertCircle,
+  KeyRound,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -167,6 +169,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToCustomer
           </div>
         </div>
       </div>
+
+      {/* Member PIN Generator & Migration for Google Accounts */}
+      <MemberPinManager />
 
       {/* Privilege & Role Management Section */}
       <div className="rounded-3xl bg-white p-6 border border-stone-200 shadow-xs space-y-4">

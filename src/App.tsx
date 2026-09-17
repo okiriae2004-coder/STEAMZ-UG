@@ -161,6 +161,7 @@ function MainLayout() {
               <RestaurantList
                 onSelectRestaurant={(rest) => setSelectedRestaurant(rest)}
                 onOpenSpotSelector={() => setIsSpotSelectorOpen(true)}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
               />
             )}
           </>

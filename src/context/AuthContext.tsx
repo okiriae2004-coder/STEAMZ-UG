@@ -326,18 +326,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return `phone_${digits}@steamz.ug`;
   };
 
-  // Sign In with WhatsApp / Phone Number + 4-6 digit PIN (100% Persistent across Cloud & Local)
-  const loginWithPhoneAndPin = async (rawPhone: string, rawPin: string) => {
+  // Sign In with WhatsApp / Phone Number OR Email + 4-6 digit PIN (100% Persistent across Cloud & Local)
+  const loginWithPhoneAndPin = async (rawInput: string, rawPin: string) => {
     setAuthLoading(true);
-    const phoneDigits = normalizePhoneDigits(rawPhone);
+    const cleanInput = rawInput.trim();
     const cleanPin = rawPin.trim();
-    const docId = `phone_${phoneDigits}`;
-    const displayPhone = formatUgPhoneDisplay(rawPhone) || rawPhone;
+    const isEmailInput = cleanInput.includes('@');
 
-    if (!phoneDigits || phoneDigits.length < 9) {
-      setAuthLoading(false);
-      throw new Error('Please enter a valid WhatsApp phone number.');
+    const phoneDigits = isEmailInput ? '' : normalizePhoneDigits(cleanInput);
+    const docId = isEmailInput
+      ? `email_${cleanInput.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`
+      : `phone_${phoneDigits}`;
+    const displayPhone = isEmailInput ? cleanInput : (formatUgPhoneDisplay(cleanInput) || cleanInput);
+
+    if (isEmailInput) {
+      if (!cleanInput.includes('.') || cleanInput.length < 5) {
+        setAuthLoading(false);
+        throw new Error('Please enter a valid email address or WhatsApp phone number.');
+      }
+    } else {
+      if (!phoneDigits || phoneDigits.length < 9) {
+        setAuthLoading(false);
+        throw new Error('Please enter a valid WhatsApp phone number or email.');
+      }
     }
+
     if (!cleanPin || cleanPin.length < 4) {
       setAuthLoading(false);
       throw new Error('Please enter your 4 to 6 digit secret PIN.');
@@ -356,13 +369,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Firestore phone lookup error or offline:', cloudErr);
     }
 
+    // 1b. If entered email, also check by matching email in phoneAccounts documents
+    if (!foundAccount && isEmailInput) {
+      try {
+        const emailLower = cleanInput.toLowerCase();
+        // check direct doc email_...
+        const emailSnap = await getDoc(doc(db, 'phoneAccounts', `email_${emailLower.replace(/[^a-zA-Z0-9]/g, '_')}`));
+        if (emailSnap.exists()) {
+          foundAccount = emailSnap.data();
+        }
+      } catch (e) {}
+    }
+
     // 2. Check local credentials cache if not found in Firestore (e.g. offline or instant local cache)
     if (!foundAccount) {
       try {
+        const localKey = isEmailInput
+          ? `steamz_email_${cleanInput.toLowerCase()}`
+          : `steamz_phone_${phoneDigits}`;
         const localRaw =
-          localStorage.getItem(`steamz_phone_${phoneDigits}`) ||
-          localStorage.getItem(`steamz_phone_+${phoneDigits}`) ||
-          localStorage.getItem(`steamz_phone_0${phoneDigits.slice(3)}`);
+          localStorage.getItem(localKey) ||
+          (!isEmailInput
+            ? localStorage.getItem(`steamz_phone_+${phoneDigits}`) ||
+              localStorage.getItem(`steamz_phone_0${phoneDigits.slice(3)}`)
+            : null);
         if (localRaw) {
           foundAccount = JSON.parse(localRaw);
           // If found in localStorage, immediately sync back to Cloud Firestore
@@ -370,30 +400,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setDoc(doc(db, 'phoneAccounts', docId), {
               ...foundAccount,
               docId,
-              phoneDigits,
+              phoneDigits: phoneDigits || foundAccount.phoneDigits || '',
               updatedAt: new Date().toISOString(),
             }).catch(() => {});
           }
         }
       } catch (localErr) {
-        console.warn('Local phone cache lookup error:', localErr);
+        console.warn('Local credentials cache lookup error:', localErr);
       }
     }
 
-    // 3. Fallback scan of all localStorage keys in case phone was stored with alternate formatting
+    // 3. Fallback scan of all localStorage keys
     if (!foundAccount) {
       try {
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && key.startsWith('steamz_phone_')) {
+          if (key && (key.startsWith('steamz_phone_') || key.startsWith('steamz_email_'))) {
             const rawVal = localStorage.getItem(key);
             if (rawVal) {
               const parsed = JSON.parse(rawVal);
-              if (parsed && (parsed.phone || parsed.phoneDigits)) {
-                const itemDigits = normalizePhoneDigits(parsed.phoneDigits || parsed.phone);
-                if (itemDigits === phoneDigits) {
+              if (parsed) {
+                if (isEmailInput && parsed.email?.toLowerCase() === cleanInput.toLowerCase()) {
                   foundAccount = parsed;
                   break;
+                } else if (!isEmailInput && (parsed.phone || parsed.phoneDigits)) {
+                  const itemDigits = normalizePhoneDigits(parsed.phoneDigits || parsed.phone);
+                  if (itemDigits === phoneDigits) {
+                    foundAccount = parsed;
+                    break;
+                  }
                 }
               }
             }
@@ -413,9 +448,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // PIN matches! Build and activate user profile
-      const uid = foundAccount.uid || `user-phone-${phoneDigits}`;
-      const syntheticEmail = foundAccount.email || `phone_${phoneDigits}@steamz.ug`;
-      const displayName = foundAccount.displayName || `Student (${phoneDigits.slice(-4)})`;
+      const effectiveDigits = phoneDigits || foundAccount.phoneDigits || '0000000000';
+      const uid = foundAccount.uid || `user-phone-${effectiveDigits}`;
+      const syntheticEmail =
+        foundAccount.email ||
+        (isEmailInput ? cleanInput : `phone_${effectiveDigits}@steamz.ug`);
+      const displayName =
+        foundAccount.displayName ||
+        (isEmailInput ? cleanInput.split('@')[0] : `Student (${effectiveDigits.slice(-4)})`);
       const universityId = foundAccount.universityId || 'kiu-western';
       const universityName =
         foundAccount.universityName ||
@@ -428,8 +468,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid,
         email: syntheticEmail,
         displayName,
-        phone: foundAccount.phone || displayPhone,
-        whatsapp: foundAccount.whatsapp || foundAccount.phone || displayPhone,
+        phone: foundAccount.phone || (isEmailInput ? '' : displayPhone),
+        whatsapp: foundAccount.whatsapp || foundAccount.phone || (isEmailInput ? '' : displayPhone),
         role: resolveUserRole(syntheticEmail),
         universityId,
         universityName,
@@ -443,7 +483,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Cache session locally
       try {
         localStorage.setItem('steamz_local_session', JSON.stringify(profile));
-        localStorage.setItem(`steamz_phone_${phoneDigits}`, JSON.stringify(foundAccount));
+        if (effectiveDigits) {
+          localStorage.setItem(`steamz_phone_${effectiveDigits}`, JSON.stringify(foundAccount));
+        }
+        if (syntheticEmail) {
+          localStorage.setItem(`steamz_email_${syntheticEmail.toLowerCase()}`, JSON.stringify(foundAccount));
+        }
       } catch (e) {}
 
       // Update last login in Cloud Firestore
@@ -460,7 +505,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 5. Account not found anywhere
     setAuthLoading(false);
     throw new Error(
-      `No account found with WhatsApp number ${displayPhone}. Please click "Register (New Account)" to create your secret PIN in 5 seconds.`
+      `No account found matching "${displayPhone}". Please enter your registered WhatsApp number or contact your Admin to generate your 4-digit PIN.`
     );
   };
 

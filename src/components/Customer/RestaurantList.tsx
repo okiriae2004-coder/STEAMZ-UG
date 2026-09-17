@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Restaurant, DropSpot } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { Restaurant, DropSpot, SUPER_ADMIN_EMAIL } from '../../types';
 import {
   Search,
   Star,
@@ -12,17 +13,21 @@ import {
   AlertCircle,
   Thermometer,
   Sparkles,
+  Lock,
+  Store,
 } from 'lucide-react';
 import { formatTime12h, getWindowStatusBadge, getWindowLabel } from '../../utils/timeUtils';
 
 interface RestaurantListProps {
   onSelectRestaurant: (restaurant: Restaurant) => void;
   onOpenSpotSelector: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const RestaurantList: React.FC<RestaurantListProps> = ({
   onSelectRestaurant,
   onOpenSpotSelector,
+  onOpenAuth,
 }) => {
   const {
     restaurants,
@@ -30,7 +35,14 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
     selectedDropSpotId,
     simulatedTime,
     setUserRole,
+    hasOwnerPrivilege,
+    isSuperAdmin,
   } = useApp();
+
+  const { currentUser, userProfile } = useAuth();
+  const activeEmail = currentUser?.email || userProfile?.email;
+  const canOwner = hasOwnerPrivilege(activeEmail);
+  const isSuper = isSuperAdmin(activeEmail);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState<string>('All');
@@ -176,13 +188,30 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
           <p className="text-xs sm:text-sm text-stone-600 max-w-md mx-auto mt-2 leading-relaxed">
             All old demo restaurants have been erased. Restaurant owners can now register their restaurant, upload photos, and add each cooked food item and UGX price to their menu!
           </p>
-          <div className="mt-6 flex items-center justify-center">
-            <button
-              onClick={() => setUserRole('owner')}
-              className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2"
-            >
-              <span>👨‍🍳 Go to Restaurant Owner Portal</span>
-            </button>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            {canOwner ? (
+              <button
+                onClick={() => setUserRole('owner')}
+                className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Store className="h-4 w-4 text-stone-950" />
+                <span>👨‍🍳 Enter Restaurant Owner Portal</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (onOpenAuth) {
+                    onOpenAuth();
+                  } else {
+                    setUserRole('owner');
+                  }
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Lock className="h-4 w-4 text-amber-400" />
+                <span>Sign In as Restaurant Owner / Super Admin</span>
+              </button>
+            )}
           </div>
         </div>
       ) : filteredRestaurants.length === 0 ? (

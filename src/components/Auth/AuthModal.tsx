@@ -301,30 +301,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {/* WhatsApp Phone Number */}
+              {/* WhatsApp Phone Number or Email */}
               <div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-200/80">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                     <MessageSquare className="h-4 w-4 text-emerald-600" />
-                    <span>WhatsApp Phone Number</span>
+                    <span>{mode === 'signin' ? 'WhatsApp Phone or Email' : 'WhatsApp Phone Number'}</span>
                   </label>
                   <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">
-                    Uganda
+                    {mode === 'signin' ? 'Login ID' : 'Uganda'}
                   </span>
                 </div>
                 <div className="relative">
                   <Phone className="h-4 w-4 text-emerald-600 absolute left-3 top-2.5" />
                   <input
-                    type="tel"
+                    type={mode === 'signin' ? 'text' : 'tel'}
                     required
-                    placeholder="0771 234 567 or 0700 123 456"
+                    placeholder={mode === 'signin' ? "0771 234 567 or student@gmail.com" : "0771 234 567 or 0700 123 456"}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-xs bg-white font-medium border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                   />
                 </div>
                 <p className="text-[10px] text-emerald-800 mt-1">
-                  Used for order updates and locker delivery pickup alerts.
+                  {mode === 'signin'
+                    ? 'Enter your WhatsApp phone number or the email address from your Google signup.'
+                    : 'Used for order updates and locker delivery pickup alerts.'}
                 </p>
               </div>
 

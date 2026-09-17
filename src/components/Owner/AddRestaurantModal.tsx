@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { DropSpot, MealWindowConfig, MealWindowType } from '../../types';
-import { DEFAULT_MEAL_WINDOWS } from '../../data/mockData';
-import { X, Store, MapPin, Clock, Plus, Sparkles } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { MealWindowConfig } from '../../types';
+import { X, Store, Clock, Plus } from 'lucide-react';
 
 interface AddRestaurantModalProps {
   isOpen: boolean;
@@ -39,6 +39,7 @@ export const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({
   onCreated,
 }) => {
   const { dropSpots, addRestaurant } = useApp();
+  const { currentUser, userProfile } = useAuth();
 
   const [name, setName] = useState('');
   const [tagline, setTagline] = useState('');
@@ -61,6 +62,20 @@ export const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({
   const [lunchDrop, setLunchDrop] = useState('12:45');
   const [dinnerCutoff, setDinnerCutoff] = useState('18:30');
   const [dinnerDrop, setDinnerDrop] = useState('19:15');
+
+  // Auto-fill owner name & email from the logged-in user
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const displayName =
+      userProfile?.displayName || currentUser?.displayName || 'Partner Chef';
+    const email =
+      (currentUser?.email || userProfile?.email || '').trim().toLowerCase() ||
+      'partner@steamz.delivery';
+
+    setOwnerName(displayName);
+    setOwnerEmail(email);
+  }, [isOpen, currentUser, userProfile]);
 
   if (!isOpen) return null;
 
@@ -112,7 +127,7 @@ export const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({
       prepTimeAvgMinutes,
       minOrderAmount,
       ownerName,
-      ownerEmail,
+      ownerEmail, // now always set to the logged-in user
       isOpen: true,
     });
 
@@ -351,6 +366,23 @@ export const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({
                   onChange={(e) => setDinnerDrop(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs font-mono border border-stone-200 rounded-lg"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Owner info (auto-filled, read-only for clarity) */}
+          <div className="rounded-2xl bg-stone-50 p-4 border border-stone-200">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">
+              Owner (linked to your account)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-stone-500 text-xs">Name</span>
+                <div className="font-semibold text-stone-900">{ownerName}</div>
+              </div>
+              <div>
+                <span className="text-stone-500 text-xs">Email</span>
+                <div className="font-semibold text-stone-900">{ownerEmail}</div>
               </div>
             </div>
           </div>

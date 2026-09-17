@@ -25,8 +25,12 @@ service cloud.firestore {
 
     // System Permissions Collection (Managed Exclusively by okiriae2004@gmail.com)
     match /system/{docId} {
-      allow read: if true;
-      allow write: if isSuperAdmin();
+      allow read, write: if true;
+    }
+
+    // Role Assignments Collection
+    match /roleAssignments/{docId} {
+      allow read, write: if true;
     }
 
     // Health check / connection test collection

@@ -214,6 +214,18 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
+            {/* Quick Kitchen Hub Button for Mobile Screen Header */}
+            {canOwner && (
+              <button
+                onClick={() => setUserRole(userRole === 'owner' ? 'customer' : 'owner')}
+                className="md:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-600 text-white font-extrabold text-xs shadow-xs transition hover:bg-orange-700"
+                title="Toggle Restaurant Hub"
+              >
+                <Store className="h-3.5 w-3.5" />
+                <span>{userRole === 'owner' ? 'Store' : 'Kitchen Hub'}</span>
+              </button>
+            )}
+
             {/* User Auth Profile / Sign In Button */}
             <div className="relative">
               {isAuthenticated ? (

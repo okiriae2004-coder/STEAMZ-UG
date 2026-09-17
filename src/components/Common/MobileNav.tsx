@@ -37,12 +37,23 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   setOwnerActiveTab,
   onOpenAdminSpots,
 }) => {
-  const { userRole, setUserRole, cart, orders, dropSpots, selectedDropSpotId } = useApp();
+  const {
+    userRole,
+    setUserRole,
+    cart,
+    orders,
+    dropSpots,
+    selectedDropSpotId,
+    hasOwnerPrivilege,
+    hasAdminPrivilege,
+  } = useApp();
   const { currentUser, userProfile } = useAuth();
 
   const isAuthenticated = Boolean(currentUser || userProfile);
   const activeUid = currentUser?.uid || userProfile?.uid;
   const activeEmail = currentUser?.email || userProfile?.email;
+  const canOwner = hasOwnerPrivilege(activeEmail);
+  const canAdmin = hasAdminPrivilege(activeEmail);
   const activePhone = userProfile?.whatsapp || userProfile?.phone || '';
   const cleanPhone = (s?: string) => (s || '').replace(/\D/g, '').slice(-9);
   const userPhoneDigits = cleanPhone(activePhone);
@@ -115,6 +126,35 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               </span>
             )}
           </button>
+
+          {/* Kitchen Hub Button for Restaurant Owners on Mobile */}
+          {canOwner && (
+            <button
+              id="mobile-nav-kitchen-hub"
+              onClick={() => setUserRole('owner')}
+              className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-orange-600 bg-orange-50 border border-orange-200/80 hover:bg-orange-100 transition-all min-h-[48px]"
+              title="Open Restaurant Owner Kitchen Hub"
+            >
+              <div className="relative">
+                <Store className="h-5 w-5 text-orange-600" />
+                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+              </div>
+              <span className="text-[10px] mt-0.5 tracking-tight font-black text-orange-700">Kitchen</span>
+            </button>
+          )}
+
+          {/* Admin Button for Admins on Mobile */}
+          {canAdmin && !canOwner && (
+            <button
+              id="mobile-nav-admin-portal"
+              onClick={() => setUserRole('admin')}
+              className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-stone-800 bg-stone-100 border border-stone-200 hover:bg-stone-200 transition-all min-h-[48px]"
+              title="Open Admin Portal"
+            >
+              <Shield className="h-5 w-5 text-stone-800" />
+              <span className="text-[10px] mt-0.5 tracking-tight font-bold text-stone-800">Admin</span>
+            </button>
+          )}
 
           {/* Account Profile Icon: Displays Recipient Photo & opens Profile/WhatsApp/Location */}
           <button

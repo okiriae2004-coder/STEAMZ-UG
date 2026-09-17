@@ -8,9 +8,11 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, query, collection, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserRole, RoleAssignment, SUPER_ADMIN_EMAIL, PhoneAccount } from '../types';
+
+let memoryRoleAssignments: RoleAssignment[] = [];
 
 // Canonical phone digits normalizer for Uganda/Africa (strips 0 or 256, returns standard 12-digit string e.g. "256771234567")
 export const normalizePhoneDigits = (raw: string): string => {
@@ -35,10 +37,16 @@ export const formatUgPhoneDisplay = (raw: string): string => {
 };
 
 // Helper to strictly resolve role based on permissions
-const resolveUserRole = (email?: string | null): UserRole => {
+export const resolveUserRole = (email?: string | null): UserRole => {
   if (!email) return 'customer';
   const lower = email.trim().toLowerCase();
   if (lower === SUPER_ADMIN_EMAIL.toLowerCase()) return 'admin';
+
+  if (memoryRoleAssignments.length > 0) {
+    const found = memoryRoleAssignments.find((a) => a.email.toLowerCase() === lower);
+    if (found) return found.role;
+  }
+
   try {
     const saved = localStorage.getItem('steamz_v4_role_assignments');
     if (saved) {
@@ -178,6 +186,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (e) {
       console.warn('Could not restore local session:', e);
+    }
+  }, []);
+
+  // Listen to Firestore system permissions in real time to update active role immediately
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, 'system', 'permissions'), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data?.roleAssignments)) {
+            memoryRoleAssignments = data.roleAssignments;
+            try {
+              localStorage.setItem('steamz_v4_role_assignments', JSON.stringify(data.roleAssignments));
+            } catch (e) {}
+
+            setUserProfile((prev) => {
+              if (!prev || !prev.email) return prev;
+              const newRole = resolveUserRole(prev.email);
+              if (prev.role !== newRole) {
+                const updated = { ...prev, role: newRole };
+                try {
+                  localStorage.setItem('steamz_local_session', JSON.stringify(updated));
+                } catch (e) {}
+                return updated;
+              }
+              return prev;
+            });
+          }
+        }
+      });
+      return () => unsub();
+    } catch (err) {
+      console.warn('Could not listen to permissions in AuthContext:', err);
     }
   }, []);
 

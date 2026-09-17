@@ -24,6 +24,7 @@ import {
   Lock,
   Crown,
   Trash2,
+  Mail,
 } from 'lucide-react';
 
 interface ProfileModalProps {
@@ -55,7 +56,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     hasOwnerPrivilege,
   } = useApp();
 
-  const activeEmail = currentUser?.email || userProfile?.email;
+  const [emailInput, setEmailInput] = useState(userProfile?.email || currentUser?.email || '');
+  const activeEmail = currentUser?.email || userProfile?.email || emailInput;
   const isSuper = isSuperAdmin(activeEmail);
   const canAdmin = hasAdminPrivilege(activeEmail);
   const canOwner = hasOwnerPrivilege(activeEmail);
@@ -141,9 +143,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const finalEmail = emailInput.trim() ? emailInput.trim().toLowerCase() : (userProfile?.email || currentUser?.email);
     await updateUserProfile({
       displayName,
       whatsapp,
+      email: finalEmail,
       universityId,
       residence,
       preferredDropSpotId,
@@ -304,6 +308,31 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           )}
         </div>
 
+        {/* Restaurant Owner Active Notice Banner */}
+        {canOwner && (
+          <div className="bg-orange-50 border-b border-orange-200/80 px-6 py-2.5 flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-8 w-8 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Store className="h-4 w-4" />
+              </div>
+              <div className="text-xs truncate">
+                <span className="font-extrabold text-orange-950 block">Restaurant Owner Tag Active 🎉</span>
+                <span className="text-orange-700 text-[11px] truncate block">Authorized by Super Admin to manage menus & live batch orders.</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setUserRole('owner');
+                onClose();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-xs shrink-0 transition"
+            >
+              Open Kitchen
+            </button>
+          </div>
+        )}
+
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {savedSuccessMsg && (
@@ -411,6 +440,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 />
                 <p className="text-[11px] text-emerald-800">
                   💬 Asked once and saved permanently for all future orders. All arrival alerts, timed batch pickup notifications, and collection PINs will be sent here until you change it.
+                </p>
+              </div>
+
+              {/* Email Address (For Role Linking) */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                  <Mail className="h-4 w-4 text-stone-400" />
+                  <span>Email Address</span>
+                </label>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="e.g. tumwineboyane@gmail.com"
+                  className="w-full px-3 py-2 text-xs border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden bg-white text-stone-900"
+                />
+                <p className="text-[11px] text-stone-500 mt-1">
+                  Ensure this email matches what the Super Admin ({SUPER_ADMIN_EMAIL}) authorized for your role privileges.
                 </p>
               </div>
 
@@ -585,9 +632,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   {userRole === 'owner' ? (
                     <CheckCircle2 className="h-5 w-5 text-orange-600 shrink-0" />
-                  ) : !canOwner ? (
+                  ) : canOwner ? (
+                    <span className="text-xs font-bold text-orange-600 bg-orange-100 hover:bg-orange-200 px-3 py-1.5 rounded-xl shrink-0 transition">
+                      Activate
+                    </span>
+                  ) : (
                     <Lock className="h-4 w-4 text-stone-400 shrink-0 mt-1" />
-                  ) : null}
+                  )}
                 </button>
 
                 {/* 3. Admin Account */}
@@ -635,9 +686,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   {userRole === 'admin' ? (
                     <CheckCircle2 className="h-5 w-5 text-stone-900 shrink-0" />
-                  ) : !canAdmin ? (
+                  ) : canAdmin ? (
+                    <span className="text-xs font-bold text-stone-900 bg-stone-200 hover:bg-stone-300 px-3 py-1.5 rounded-xl shrink-0 transition">
+                      Activate
+                    </span>
+                  ) : (
                     <Lock className="h-4 w-4 text-stone-400 shrink-0 mt-1" />
-                  ) : null}
+                  )}
                 </button>
               </div>
 

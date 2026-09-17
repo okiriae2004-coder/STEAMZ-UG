@@ -288,35 +288,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromStorage('low_data_mode', false)
   );
 
-  // Sync permissions from Firestore /system/permissions on boot
-  useEffect(() => {
-    const fetchPermissions = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'system', 'permissions'));
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data?.roleAssignments && Array.isArray(data.roleAssignments)) {
-            setRoleAssignments((prev) => {
-              const merged = [...data.roleAssignments];
-              if (!merged.some((r: RoleAssignment) => r.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase())) {
-                merged.unshift({
-                  email: SUPER_ADMIN_EMAIL,
-                  role: 'admin',
-                  assignedAt: new Date().toISOString(),
-                  assignedBy: 'system',
-                });
-              }
-              saveToStorage('role_assignments', merged);
-              return merged;
-            });
-          }
+  // Helper to get active user email (from Firebase Auth or local session)
+  const getActiveUserEmail = useCallback((): string | null => {
+    if (auth.currentUser?.email) {
+      return auth.currentUser.email.trim().toLowerCase();
+    }
+    try {
+      const savedSession = localStorage.getItem('steamz_local_session');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed?.email) {
+          return parsed.email.trim().toLowerCase();
         }
-      } catch (err) {
-        console.warn('Could not load remote permissions from Firestore:', err);
       }
-    };
-    fetchPermissions();
+    } catch (e) {}
+    return null;
   }, []);
+
+  // Sync permissions from Firestore /system/permissions in real time
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(
+        doc(db, 'system', 'permissions'),
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data?.roleAssignments && Array.isArray(data.roleAssignments)) {
+              setRoleAssignments((prev) => {
+                const merged = [...data.roleAssignments];
+                if (!merged.some((r: RoleAssignment) => r.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase())) {
+                  merged.unshift({
+                    email: SUPER_ADMIN_EMAIL,
+                    role: 'admin',
+                    assignedAt: new Date().toISOString(),
+                    assignedBy: 'system',
+                  });
+                }
+                saveToStorage('role_assignments', merged);
+                return merged;
+              });
+
+              // Check if active user should be granted owner role immediately
+              const activeEmail = getActiveUserEmail();
+              if (activeEmail) {
+                const isOwner = data.roleAssignments.some(
+                  (r: RoleAssignment) =>
+                    r.role === 'owner' && r.email.toLowerCase() === activeEmail.toLowerCase()
+                );
+                if (isOwner) {
+                  setUserRoleState((prev) => (prev === 'customer' ? 'owner' : prev));
+                }
+              }
+            }
+          }
+        },
+        (err) => {
+          console.warn('Could not listen to remote permissions from Firestore:', err);
+        }
+      );
+      return () => unsub();
+    } catch (err) {
+      console.warn('Error setting up permissions onSnapshot:', err);
+    }
+  }, [getActiveUserEmail]);
 
   // Sync Restaurants from Firestore collection ('restaurants') in real time
   useEffect(() => {
@@ -564,23 +598,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [roleAssignments]
   );
 
-  // Helper to get active user email (from Firebase Auth or local session)
-  const getActiveUserEmail = useCallback((): string | null => {
-    if (auth.currentUser?.email) {
-      return auth.currentUser.email.trim().toLowerCase();
-    }
-    try {
-      const savedSession = localStorage.getItem('steamz_local_session');
-      if (savedSession) {
-        const parsed = JSON.parse(savedSession);
-        if (parsed?.email) {
-          return parsed.email.trim().toLowerCase();
-        }
-      }
-    } catch (e) {}
-    return null;
-  }, []);
-
   // Secure setUserRole: Prevents arbitrary promotion by non-authorized users
   const setUserRole = useCallback(
     (role: UserRole) => {
@@ -625,9 +642,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (email === SUPER_ADMIN_EMAIL.toLowerCase()) {
         setUserRoleState('admin');
       } else if (email && hasAdminPrivilege(email)) {
-        // authorized admin
+        setUserRoleState('admin');
       } else if (email && hasOwnerPrivilege(email)) {
-        // authorized owner
+        setUserRoleState('owner');
       } else {
         // Demote if trying to view admin/owner without authorization
         setUserRoleState((prev) => (prev === 'admin' || prev === 'owner' ? 'customer' : prev));
@@ -641,6 +658,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const localEmail = getActiveUserEmail();
     if (localEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
       setUserRoleState('admin');
+    } else if (localEmail && hasAdminPrivilege(localEmail)) {
+      setUserRoleState('admin');
+    } else if (localEmail && hasOwnerPrivilege(localEmail)) {
+      setUserRoleState('owner');
     }
 
     // Also listen for cross-tab or in-page storage changes to steamz_local_session

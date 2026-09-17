@@ -17,18 +17,13 @@ import { MobileNav } from './components/Common/MobileNav';
 import { Restaurant } from './types';
 import {
   Clock,
-  MapPin,
   Flame,
   ShieldCheck,
   RotateCcw,
-  Sparkles,
-  Layers,
   Thermometer,
-  Package,
   Wifi,
   WifiOff,
 } from 'lucide-react';
-import { formatTime12h } from './utils/timeUtils';
 
 function MainLayout() {
   const {
@@ -38,7 +33,6 @@ function MainLayout() {
     activeTrackingOrderId,
     setActiveTrackingOrderId,
     setSelectedDropSpotId,
-    simulatedTime,
     resetToDefaults,
     lowDataMode,
     setLowDataMode,
@@ -57,6 +51,7 @@ function MainLayout() {
   const [ownerActiveTab, setOwnerActiveTab] = useState<'analytics' | 'orders' | 'menu' | 'settings'>('menu');
 
   // Sync user role and preferred spot from profile if signed in
+  // This makes approved owners land on the Owner Dashboard automatically
   useEffect(() => {
     if (userProfile?.role) {
       setUserRole(userProfile.role);
@@ -64,7 +59,7 @@ function MainLayout() {
     if (userProfile?.preferredDropSpotId) {
       setSelectedDropSpotId(userProfile.preferredDropSpotId);
     }
-  }, [userProfile?.role, userProfile?.preferredDropSpotId, setUserRole, setSelectedDropSpotId]);
+  }, [userProfile, setUserRole, setSelectedDropSpotId]);
 
   // If a new order was placed and set to activeTrackingOrderId, open tracker
   useEffect(() => {
@@ -76,7 +71,6 @@ function MainLayout() {
   }, [activeTrackingOrderId, setActiveTrackingOrderId]);
 
   const handleOpenActiveTracker = () => {
-    // Pick the most recent active order belonging to current user
     const activeUid = currentUser?.uid || userProfile?.uid;
     const activeEmail = currentUser?.email || userProfile?.email;
     const activePhone = userProfile?.whatsapp || userProfile?.phone || '';
@@ -117,7 +111,7 @@ function MainLayout() {
         onOpenProfile={() => setIsProfileModalOpen(true)}
       />
 
-      {/* Low-Data / Slow Internet Mode Indicator & Toggle for Mobile & Web */}
+      {/* Low-Data / Slow Internet Mode Indicator & Toggle */}
       <div className="bg-stone-900 text-stone-300 py-1 px-4 text-[11px] flex items-center justify-between border-b border-stone-800">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-1.5 truncate">
@@ -147,7 +141,7 @@ function MainLayout() {
         </div>
       </div>
 
-      {/* Main Page Container with generous bottom padding so no content is hidden under lower bar */}
+      {/* Main Page Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32 md:pb-12">
         {userRole === 'customer' && (
           <>
@@ -185,7 +179,7 @@ function MainLayout() {
         )}
       </main>
 
-      {/* Mobile Dedicated Bottom Navigation (Active on Mobile, hidden on PC) */}
+      {/* Mobile Bottom Navigation */}
       <MobileNav
         onOpenCart={() => setIsCartOpen(true)}
         onOpenActiveTracker={handleOpenActiveTracker}
@@ -197,7 +191,7 @@ function MainLayout() {
         setOwnerActiveTab={setOwnerActiveTab}
       />
 
-      {/* Footer with safety margin above mobile nav bar */}
+      {/* Footer */}
       <footer className="mt-16 mb-24 md:mb-0 bg-white border-t border-stone-200 py-10 text-xs text-stone-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">

@@ -70,5 +70,10 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if true;
     }
+
+    // Drop Spots Collection (Delivery pickup locations)
+    match /dropSpots/{spotId} {
+      allow read, create, update, delete: if true;
+    }
   }
 }

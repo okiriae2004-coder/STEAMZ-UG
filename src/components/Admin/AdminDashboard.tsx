@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { DropSpot, SUPER_ADMIN_EMAIL } from '../../types';
 import { MemberPinManager } from './MemberPinManager';
+import { compressImage } from '../../utils/imageCompressor';
 import {
   Shield,
   MapPin,
@@ -23,6 +24,7 @@ import {
   Trash2,
   AlertCircle,
   KeyRound,
+  Loader2,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -50,6 +52,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToCustomer
   const [selectedSpot, setSelectedSpot] = useState<DropSpot | null>(null);
   const [editingImageSpotId, setEditingImageSpotId] = useState<string | null>(null);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [uploadingSpotId, setUploadingSpotId] = useState<string | null>(null);
   
   // Super Admin privilege assignment states
   const [targetEmail, setTargetEmail] = useState('');
@@ -60,31 +63,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToCustomer
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSpotFileUpload = (
+  const handleSpotFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     spotId: string
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        updateDropSpotImage(spotId, reader.result);
-        setSpotSuccessMsg(`Updated image for delivery spot!`);
-        setTimeout(() => setSpotSuccessMsg(null), 2500);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setUploadingSpotId(spotId);
+      // Automatically compress client-side to keep under quotas and sync to Firestore
+      const compressedDataUrl = await compressImage(file, 1000, 800, 0.75);
+      await updateDropSpotImage(spotId, compressedDataUrl);
+      setSpotSuccessMsg('Updated photo & saved permanently to cloud!');
+      setTimeout(() => setSpotSuccessMsg(null), 3500);
+    } catch (err: any) {
+      console.error('Failed to compress and upload spot image:', err);
+      setSpotSuccessMsg('Could not process photo. Please try again.');
+      setTimeout(() => setSpotSuccessMsg(null), 3000);
+    } finally {
+      setUploadingSpotId(null);
+      e.target.value = '';
+    }
   };
 
-  const handleSaveSpotUrl = (spotId: string) => {
+  const handleSaveSpotUrl = async (spotId: string) => {
     if (!newImageUrl.trim()) return;
-    updateDropSpotImage(spotId, newImageUrl.trim());
-    setEditingImageSpotId(null);
-    setNewImageUrl('');
-    setSpotSuccessMsg(`Updated image for delivery spot!`);
-    setTimeout(() => setSpotSuccessMsg(null), 2500);
+    try {
+      setUploadingSpotId(spotId);
+      await updateDropSpotImage(spotId, newImageUrl.trim());
+      setEditingImageSpotId(null);
+      setNewImageUrl('');
+      setSpotSuccessMsg('Updated photo URL & saved permanently to cloud!');
+      setTimeout(() => setSpotSuccessMsg(null), 3500);
+    } catch (err) {
+      console.error('Error saving image URL:', err);
+    } finally {
+      setUploadingSpotId(null);
+    }
   };
 
   const handleGrantPrivilege = async (e: React.FormEvent) => {
@@ -410,6 +426,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToCustomer
                 <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-amber-500 text-white text-[10px] font-extrabold shadow-xs">
                   {spot.zone}
                 </div>
+
+                {/* Uploading Spinner Overlay */}
+                {uploadingSpotId === spot.id && (
+                  <div className="absolute inset-0 bg-stone-950/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 p-3 text-white z-10 animate-in fade-in">
+                    <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                    <span className="text-xs font-bold text-center">
+                      Optimizing & Syncing to Cloud...
+                    </span>
+                  </div>
+                )}
 
                 {/* Hover / Direct Upload Controls */}
                 <div className="absolute inset-0 bg-stone-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3">

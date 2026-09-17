@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserRole, RoleAssignment, SUPER_ADMIN_EMAIL, PhoneAccount } from '../types';
 
@@ -99,7 +99,6 @@ interface AuthContextType {
   updateUserWhatsApp: (whatsapp: string) => Promise<void>;
   updateUserUniversity: (uniId: string, preferredSpotId?: string) => Promise<void>;
   loginAsDemoUser: (role: UserRole) => void;
-  loginAsSuperAdmin: () => void;
   isDemoUser: boolean;
 }
 
@@ -607,34 +606,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthLoading(false);
   };
 
-  // Super Admin Instant Login for okiriae2004@gmail.com
-  const loginAsSuperAdmin = () => {
-    setIsDemoUser(false);
-    const superAdminProfile: UserProfile = {
-      uid: 'superadmin-okiriae2004',
-      email: SUPER_ADMIN_EMAIL,
-      displayName: 'Okiria (STEAMZ Super Admin)',
-      role: 'admin',
-      universityId: 'kiu-western',
-      universityName: 'Kampala International University (KIU Western)',
-      preferredDropSpotId: 'spot-kiu-eng',
-      whatsapp: '+256 700 000000',
-      createdAt: new Date().toISOString(),
-    };
-    setUserProfile(superAdminProfile);
-    try {
-      localStorage.setItem('steamz_local_session', JSON.stringify(superAdminProfile));
-    } catch (e) {
-      console.warn('Could not save local session:', e);
-    }
-  };
-
   // Email / Password Login with automatic fallback on unauthorized domain / disabled provider
   const loginWithEmail = async (email: string, pass: string) => {
     setAuthLoading(true);
     const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = pass.trim();
 
-    // If Super Admin logs in, allow direct access if Firebase fails
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, pass);
     } catch (error: any) {
@@ -647,21 +624,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errorCode === 'auth/network-request-failed' ||
         errorCode === 'auth/invalid-credential';
 
-      // Always grant access to okiriae2004@gmail.com even if Firebase domain is not yet authorized in console
-      if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
-        loginAsSuperAdmin();
-        return;
-      }
-
-      // Check locally registered accounts on Vercel
+      // Check registered phoneAccounts in Firestore (verify PIN / password)
       if (isDomainOrConfigIssue) {
+        try {
+          const q = query(collection(db, 'phoneAccounts'), where('email', '==', cleanEmail));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const acc = snap.docs[0].data() as PhoneAccount;
+            const validSecret = String(acc.pin || (acc as any).password || '').trim();
+            if (validSecret && (validSecret === cleanPass || validSecret === pass)) {
+              const profile: UserProfile = {
+                uid: acc.uid || snap.docs[0].id,
+                email: acc.email || cleanEmail,
+                displayName: acc.displayName || cleanEmail.split('@')[0],
+                phone: acc.phone || '',
+                whatsapp: acc.phone || '',
+                role: resolveUserRole(acc.email || cleanEmail),
+                universityId: acc.universityId || 'kiu-western',
+                universityName:
+                  acc.universityName || 'Kampala International University (KIU Western)',
+                preferredDropSpotId: acc.preferredDropSpotId || 'spot-kiu-eng',
+                createdAt: acc.createdAt || new Date().toISOString(),
+              };
+
+              setUserProfile(profile);
+              setIsDemoUser(false);
+              localStorage.setItem('steamz_local_session', JSON.stringify(profile));
+              return;
+            } else {
+              const wrongPassErr = new Error('Incorrect password or PIN.');
+              (wrongPassErr as any).code = 'auth/wrong-password';
+              throw wrongPassErr;
+            }
+          }
+        } catch (phoneErr: any) {
+          if (phoneErr?.code === 'auth/wrong-password') throw phoneErr;
+          console.warn('Phone accounts email check error:', phoneErr);
+        }
+
+        // Check locally registered accounts on Vercel
         try {
           const rawAccounts = localStorage.getItem('steamz_local_accounts');
           if (rawAccounts) {
             const accounts = JSON.parse(rawAccounts);
             const found = accounts.find((a: any) => a.email.toLowerCase() === cleanEmail);
             if (found) {
-              if (found.password && found.password !== pass) {
+              if (found.password && found.password !== pass && found.password !== cleanPass) {
                 const wrongPassErr = new Error('auth/wrong-password');
                 (wrongPassErr as any).code = 'auth/wrong-password';
                 throw wrongPassErr;
@@ -922,7 +930,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateUserWhatsApp,
         updateUserUniversity,
         loginAsDemoUser,
-        loginAsSuperAdmin,
         isDemoUser,
       }}
     >

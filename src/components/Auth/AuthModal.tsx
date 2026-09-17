@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
-import { UserRole, SUPER_ADMIN_EMAIL } from '../../types';
+import { UserRole } from '../../types';
 import {
   X,
   User,
@@ -14,7 +14,6 @@ import {
   Phone,
   MessageSquare,
   ShieldCheck,
-  Crown,
   KeyRound,
   Mail,
 } from 'lucide-react';
@@ -37,7 +36,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     signupWithEmail,
     signInWithGoogle,
     loginAsDemoUser,
-    loginAsSuperAdmin,
   } = useAuth();
 
   const {
@@ -82,14 +80,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (spotsForUni.length > 0) {
       setPreferredDropSpotId(spotsForUni[0].id);
     }
-  };
-
-  const handleSuperAdminLogin = () => {
-    loginAsSuperAdmin();
-    setUserRole('admin');
-    setSelectedUniversityId('kiu-western');
-    setSelectedDropSpotId('spot-kiu-eng');
-    onClose();
   };
 
   // WhatsApp & PIN Submit Handler
@@ -538,17 +528,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             )}
           </div>
 
-          {/* Super Admin & Quick Demo Login */}
+          {/* Quick Demo Login */}
           <div className="pt-3 border-t border-stone-100">
-            <button
-              type="button"
-              onClick={handleSuperAdminLogin}
-              className="w-full px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold text-amber-900 border border-amber-300/70 flex items-center justify-center gap-1.5 transition text-center cursor-pointer mb-2"
-            >
-              <Crown className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Sign In as Super Admin (okiriae2004@gmail.com)</span>
-            </button>
-
             <button
               type="button"
               onClick={() => handleDemoLogin('customer')}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { UserRole, SUPER_ADMIN_EMAIL } from '../../types';
+import { compressImage } from '../../utils/imageCompressor';
 import {
   X,
   User,
@@ -118,18 +119,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setSelectedDropSpotId(spotId);
   };
 
-  // Handle Photo Upload (converts file to base64 Data URL)
-  const handlePhotoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Photo Upload (compresses file and converts to base64 Data URL)
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setRecipientPhoto(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 600, 600, 0.75);
+      setRecipientPhoto(compressed);
+    } catch (err) {
+      console.warn('Could not compress profile photo, using original:', err);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setRecipientPhoto(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {

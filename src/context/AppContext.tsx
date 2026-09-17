@@ -406,6 +406,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  // Sync DropSpots from Firestore ('dropSpots' collection) in real-time across all browsers & devices
+  useEffect(() => {
+    try {
+      const unsubscribe = onSnapshot(
+        collection(db, 'dropSpots'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const firestoreSpots: DropSpot[] = [];
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as DropSpot;
+              if (data && data.name) {
+                firestoreSpots.push({
+                  ...data,
+                  id: docSnap.id,
+                });
+              }
+            });
+
+            if (firestoreSpots.length > 0) {
+              setDropSpots((prev) => {
+                const map = new Map<string, DropSpot>();
+                // Keep initial spots as fallback base
+                (prev.length > 0 ? prev : INITIAL_DROP_SPOTS).forEach((s) => map.set(s.id, s));
+                // Overlay remote Firestore data
+                firestoreSpots.forEach((s) => {
+                  const existing = map.get(s.id);
+                  map.set(s.id, { ...(existing || {}), ...s });
+                });
+                const merged = Array.from(map.values());
+                saveToStorage('drop_spots', merged);
+                return merged;
+              });
+            }
+          }
+        },
+        (error) => {
+          console.warn('Could not listen to Firestore dropSpots collection:', error);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn('Failed setting up dropSpots onSnapshot:', e);
+    }
+  }, []);
+
   // Sync Orders from Cloud Firestore ('orders' collection) in real-time across all browsers & devices
   useEffect(() => {
     try {
@@ -1038,12 +1084,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateDropSpot = (updated: DropSpot) => {
     setDropSpots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    try {
+      setDoc(doc(db, 'dropSpots', updated.id), cleanForFirestore(updated), { merge: true }).catch((err) => {
+        console.warn('Could not sync dropSpot update to Firestore:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to call setDoc for dropSpot:', e);
+    }
   };
 
   const updateDropSpotImage = (spotId: string, image: string) => {
     setDropSpots((prev) =>
       prev.map((s) => (s.id === spotId ? { ...s, image } : s))
     );
+    try {
+      setDoc(
+        doc(db, 'dropSpots', spotId),
+        cleanForFirestore({
+          image,
+          updatedAt: new Date().toISOString(),
+        }),
+        { merge: true }
+      ).catch((err) => {
+        console.warn('Could not sync dropSpot image to Firestore:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to call setDoc for dropSpot image:', e);
+    }
   };
 
   const updateRestaurantCover = (restaurantId: string, bannerImage: string, logoImage?: string) => {

@@ -38,24 +38,29 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const { currentUser, userProfile } = useAuth();
 
-  const [internalTab, setInternalTab] = useState<'analytics' | 'orders' | 'menu' | 'settings'>(
-    'orders'
-  );
+  const [internalTab, setInternalTab] = useState<
+    'analytics' | 'orders' | 'menu' | 'settings'
+  >('orders');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement | null>(null);
 
   const activeTab = controlledTab || internalTab;
-  const handleTabSelect = (tab: 'analytics' | 'orders' | 'menu' | 'settings') => {
+  const handleTabSelect = (
+    tab: 'analytics' | 'orders' | 'menu' | 'settings'
+  ) => {
     if (onTabChange) onTabChange(tab);
     setInternalTab(tab);
   };
 
-  // Close switcher when clicking outside
+  // Close switcher on outside click
   useEffect(() => {
     if (!isSwitcherOpen) return;
     const onClick = (e: MouseEvent) => {
-      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+      if (
+        switcherRef.current &&
+        !switcherRef.current.contains(e.target as Node)
+      ) {
         setIsSwitcherOpen(false);
       }
     };
@@ -63,7 +68,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     return () => document.removeEventListener('mousedown', onClick);
   }, [isSwitcherOpen]);
 
-  // Current user email (Firebase Auth or local session profile)
   const currentEmail = (
     currentUser?.email ||
     userProfile?.email ||
@@ -72,7 +76,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     .trim()
     .toLowerCase();
 
-  const isAdminUser = isSuperAdmin(currentEmail) || hasAdminPrivilege(currentEmail);
+  const isAdminUser =
+    isSuperAdmin(currentEmail) || hasAdminPrivilege(currentEmail);
 
   const myRestaurants = useMemo(() => {
     if (isAdminUser) return restaurants;
@@ -98,18 +103,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     });
   }, [restaurants, roleAssignments, currentEmail, isAdminUser]);
 
-  // Keep selected restaurant inside the allowed list
   useEffect(() => {
     if (myRestaurants.length === 0) return;
-
-    const stillValid = myRestaurants.some((r) => r.id === selectedOwnerRestaurantId);
+    const stillValid = myRestaurants.some(
+      (r) => r.id === selectedOwnerRestaurantId
+    );
     if (!stillValid) {
       setSelectedOwnerRestaurantId(myRestaurants[0].id);
     }
   }, [myRestaurants, selectedOwnerRestaurantId, setSelectedOwnerRestaurantId]);
 
   const currentRestaurant =
-    myRestaurants.find((r) => r.id === selectedOwnerRestaurantId) || myRestaurants[0];
+    myRestaurants.find((r) => r.id === selectedOwnerRestaurantId) ||
+    myRestaurants[0];
 
   const handleQuickSeedDemoKitchen = () => {
     const ownerDisplayName =
@@ -187,7 +193,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     handleTabSelect('menu');
   };
 
-  // Empty state: no restaurants this user owns (or none exist yet)
+  // Empty state
   if (!currentRestaurant) {
     return (
       <div className="space-y-6">
@@ -199,7 +205,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             Set up your restaurant
           </h2>
           <p className="text-xs sm:text-sm text-stone-600 mt-2 max-w-md mx-auto leading-relaxed">
-            Create your restaurant, set UGX prices, and start receiving batch orders.
+            Create your restaurant, set UGX prices, and start receiving batch
+            orders.
           </p>
 
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5">
@@ -308,8 +315,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         )}
       </div>
 
-      {/* 3-tab bar */}
-      <div className="grid grid-cols-3 gap-1.5">
+      {/* 3-tab bar — desktop/tablet only. On mobile the bottom bar drives tabs. */}
+      <div className="hidden md:grid grid-cols-3 gap-1.5">
         {[
           { id: 'orders', label: 'Orders', icon: Layers },
           { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
@@ -347,7 +354,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <h3 className="text-sm font-bold text-stone-900">
                 Drop Spots{' '}
                 <span className="text-stone-400 font-normal">
-                  ({currentRestaurant.supportedDropSpotIds.length}/{dropSpots.length})
+                  ({currentRestaurant.supportedDropSpotIds.length}/
+                  {dropSpots.length})
                 </span>
               </h3>
               <div className="flex items-center gap-1.5 text-[11px]">
@@ -380,14 +388,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {dropSpots.map((spot) => {
-                const isSupported = currentRestaurant.supportedDropSpotIds.includes(spot.id);
+                const isSupported =
+                  currentRestaurant.supportedDropSpotIds.includes(spot.id);
                 return (
                   <button
                     key={spot.id}
                     onClick={() => {
                       const newIds = isSupported
-                        ? currentRestaurant.supportedDropSpotIds.filter((id) => id !== spot.id)
-                        : [...currentRestaurant.supportedDropSpotIds, spot.id];
+                        ? currentRestaurant.supportedDropSpotIds.filter(
+                            (id) => id !== spot.id
+                          )
+                        : [
+                            ...currentRestaurant.supportedDropSpotIds,
+                            spot.id,
+                          ];
                       updateRestaurant({
                         ...currentRestaurant,
                         supportedDropSpotIds: newIds,

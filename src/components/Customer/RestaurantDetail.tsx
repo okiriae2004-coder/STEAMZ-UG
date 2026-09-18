@@ -5,16 +5,10 @@ import {
   ArrowLeft,
   Star,
   Clock,
-  MapPin,
   Plus,
-  Info,
   CheckCircle2,
   AlertTriangle,
-  Flame,
-  Leaf,
   MessageSquare,
-  ShieldCheck,
-  Thermometer,
 } from 'lucide-react';
 import { formatTime12h, getWindowStatusBadge, getWindowLabel } from '../../utils/timeUtils';
 import { formatUGX } from '../../utils/currency';
@@ -74,7 +68,7 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
     : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Back Button */}
       <button
         onClick={onBack}
@@ -84,95 +78,93 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
         <span>Back to All Restaurants</span>
       </button>
 
-      {/* Hero Header */}
-      <div className="relative rounded-3xl overflow-hidden bg-stone-900 text-white shadow-xl">
-        <div className="relative h-64 w-full">
+      {/* Compact Hero Header */}
+      <div className="relative rounded-2xl overflow-hidden bg-stone-900 text-white shadow-lg">
+        <div className="relative h-32 sm:h-44 w-full">
           <img
             src={restaurant.bannerImage}
             alt={restaurant.name}
-            className="h-full w-full object-cover opacity-80"
+            className="h-full w-full object-cover opacity-75"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/50 to-transparent" />
 
-          {/* Supported Spot Warning / Notice */}
-          <div className="absolute top-4 right-4">
+          {/* Spot status badge — top right, compact */}
+          <div className="absolute top-3 right-3">
             {isCurrentSpotSupported ? (
-              <div className="flex items-center gap-1.5 bg-emerald-950/80 border border-emerald-500/30 text-emerald-200 text-xs px-3 py-1.5 rounded-full backdrop-blur-md">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Delivers to <strong>{currentSelectedSpot?.name}</strong></span>
+              <div className="flex items-center gap-1.5 bg-emerald-950/85 border border-emerald-500/30 text-emerald-100 text-[11px] px-2.5 py-1 rounded-full backdrop-blur-md">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate max-w-[160px]">
+                  To <strong>{currentSelectedSpot?.name || 'your spot'}</strong>
+                </span>
               </div>
             ) : (
               <button
                 onClick={onOpenSpotSelector}
-                className="flex items-center gap-1.5 bg-amber-950/80 border border-amber-500/30 text-amber-200 text-xs px-3 py-1.5 rounded-full backdrop-blur-md hover:bg-amber-900/80 transition"
+                className="flex items-center gap-1.5 bg-amber-950/85 border border-amber-500/30 text-amber-100 text-[11px] px-2.5 py-1 rounded-full backdrop-blur-md hover:bg-amber-900/85 transition"
               >
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                <span>Select a supported drop spot</span>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                <span>Pick supported spot</span>
               </button>
             )}
           </div>
+
+          {/* Name overlay on hero for mobile — identity stays visible */}
+          <div className="absolute bottom-3 left-3 right-3 flex items-end gap-3">
+            <img
+              src={restaurant.logoImage}
+              alt={restaurant.name}
+              className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl object-cover border-2 border-white shadow-lg bg-white shrink-0"
+              referrerPolicy="no-referrer"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white truncate">
+                {restaurant.name}
+              </h1>
+              <div className="flex items-center gap-2 text-[11px] sm:text-xs text-stone-300 mt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reviews')}
+                  className="flex items-center gap-1 bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold transition"
+                >
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  <span>{restaurant.rating.toFixed(1)}</span>
+                  <span className="text-stone-300 font-normal">({restaurant.ratingCount})</span>
+                </button>
+                <span className="truncate">{restaurant.cuisine.join(' • ')}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Info Strip */}
-        <div className="p-6 relative -mt-16 z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <img
-                src={restaurant.logoImage}
-                alt={restaurant.name}
-                className="h-20 w-20 rounded-2xl object-cover border-4 border-white shadow-xl bg-white shrink-0"
-                referrerPolicy="no-referrer"
-              />
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                    {restaurant.name}
-                  </h1>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('reviews')}
-                    className="flex items-center gap-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-xs font-bold transition cursor-pointer"
-                    title="Read reviews and customer ratings"
-                  >
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <span>{restaurant.rating.toFixed(1)}</span>
-                    <span className="text-stone-300 font-normal">({restaurant.ratingCount})</span>
-                  </button>
-                </div>
-                <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-xl">
-                  {restaurant.description}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs text-stone-400">
-                  <span>{restaurant.cuisine.join(' • ')}</span>
-                  <span>•</span>
-                  <span>Ready-Cooked Menu</span>
-                  <span>•</span>
-                  <span>Min Order: {formatUGX(restaurant.minOrderAmount)}</span>
-                </div>
-              </div>
+        {/* Compact info strip below hero */}
+        <div className="px-4 py-3 bg-stone-900/95 border-t border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <p className="text-xs text-stone-300 line-clamp-2 flex-1">
+              {restaurant.description}
+            </p>
+            <div className="flex items-center gap-3 text-[11px] text-stone-400 shrink-0">
+              <span>Min: <strong className="text-stone-200">{formatUGX(restaurant.minOrderAmount)}</strong></span>
             </div>
+          </div>
 
-            {/* Supported Spots Chips */}
-            <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm border border-white/10 max-w-xs">
-              <span className="text-[11px] uppercase tracking-wider text-amber-300 font-bold block mb-1">
-                Authorized Drop Spots ({supportedSpots.length})
+          {/* Supported spots — compact chips */}
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider text-amber-300 font-bold">
+              Drops to ({supportedSpots.length}):
+            </span>
+            {supportedSpots.map((spot) => (
+              <span
+                key={spot.id}
+                className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
+                  spot.id === selectedDropSpotId
+                    ? 'bg-amber-400 text-stone-900 font-bold'
+                    : 'bg-white/10 text-stone-300'
+                }`}
+              >
+                {spot.shortCode}
               </span>
-              <div className="flex flex-wrap gap-1">
-                {supportedSpots.map((spot) => (
-                  <span
-                    key={spot.id}
-                    className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
-                      spot.id === selectedDropSpotId
-                        ? 'bg-amber-400 text-stone-900 font-bold'
-                        : 'bg-white/20 text-white'
-                    }`}
-                  >
-                    {spot.shortCode}
-                  </span>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -188,7 +180,7 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
                 : 'border-transparent text-stone-500 hover:text-stone-800'
             }`}
           >
-            Menu & Meal Windows ({items.length})
+            Menu ({items.length})
           </button>
           <button
             onClick={() => setActiveTab('reviews')}
@@ -199,35 +191,35 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
             }`}
           >
             <MessageSquare className="h-4 w-4" />
-            <span>Reviews & Ratings ({restaurantFeedbacks.length})</span>
+            <span>Reviews ({restaurantFeedbacks.length})</span>
           </button>
         </div>
       </div>
 
       {activeTab === 'menu' && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {/* Meal Window Tabs with Cut-off info */}
-          <div className="rounded-2xl bg-white p-4 border border-stone-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="rounded-2xl bg-white p-3 sm:p-4 border border-stone-200 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-amber-500" />
-                Select Meal Order Window
+                Meal Window
               </span>
-              <span className="text-xs text-stone-400">
-                Current simulated time: <strong>{formatTime12h(simulatedTime)}</strong>
+              <span className="text-[10px] text-stone-400">
+                {formatTime12h(simulatedTime)}
               </span>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedMealWindowTab('all')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                   selectedMealWindowTab === 'all'
                     ? 'bg-stone-900 text-white shadow-xs'
                     : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
                 }`}
               >
-                All Menu Items ({items.length})
+                All ({items.length})
               </button>
 
               {restaurant.mealWindows.map((w) => {
@@ -238,7 +230,7 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
                   <button
                     key={w.id}
                     onClick={() => setSelectedMealWindowTab(w.type)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 border transition ${
                       isSelected
                         ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-400'
                         : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-700'
@@ -259,31 +251,39 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
               })}
             </div>
 
-            {/* Selected Window Banner Details */}
+            {/* Selected Window Banner — PROMOTED, big and unmissable */}
             {currentWindowConfig && (
               <div
-                className={`mt-2 p-3 rounded-xl border text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 ${
+                className={`mt-1 p-3 rounded-xl border-l-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 ${
                   currentWindowStatus?.isOpen
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                    : 'bg-stone-100 border-stone-200 text-stone-600'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
+                    : 'bg-stone-100 border-stone-400 text-stone-700'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 shrink-0 text-amber-600" />
-                  <span>
-                    <strong>{currentWindowConfig.label}:</strong> Orders must be placed before{' '}
-                    <strong>{formatTime12h(currentWindowConfig.orderCutoffTime)}</strong> for{' '}
-                    <strong>{formatTime12h(currentWindowConfig.dropOffTime)}</strong> batch drop-off.
-                  </span>
+                <div className="flex items-start gap-2">
+                  <Clock
+                    className={`h-4 w-4 shrink-0 mt-0.5 ${
+                      currentWindowStatus?.isOpen ? 'text-emerald-600' : 'text-stone-500'
+                    }`}
+                  />
+                  <div className="text-xs leading-snug">
+                    <div className="font-bold text-sm">
+                      {currentWindowConfig.label}
+                    </div>
+                    <div className="text-[11px] opacity-90">
+                      Order by <strong>{formatTime12h(currentWindowConfig.orderCutoffTime)}</strong> for{' '}
+                      <strong>{formatTime12h(currentWindowConfig.dropOffTime)}</strong> drop
+                    </div>
+                  </div>
                 </div>
-                <div className="font-bold shrink-0">
+                <div className="font-bold shrink-0 text-xs">
                   {currentWindowStatus?.isOpen ? (
-                    <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                    <span className="text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
                       {currentWindowStatus.text}
                     </span>
                   ) : (
-                    <span className="text-stone-500 bg-stone-200 px-2 py-0.5 rounded-md">
-                      Cut-off has closed
+                    <span className="text-stone-600 bg-stone-200 px-2.5 py-1 rounded-lg">
+                      Closed
                     </span>
                   )}
                 </div>
@@ -296,37 +296,49 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
             const categoryItems = filteredItems.filter((i) => i.category === category);
             return (
               <div key={category} className="space-y-3">
-                <h3 className="text-lg font-extrabold text-stone-900 border-b border-stone-100 pb-2">
+                <h3 className="text-base font-extrabold text-stone-900 border-b border-stone-100 pb-1.5">
                   {category}
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {categoryItems.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => setSelectedMenuItem(item)}
-                      className="group cursor-pointer rounded-2xl border border-stone-200 bg-white p-4 shadow-2xs hover:shadow-md hover:border-amber-300 transition-all flex items-start gap-4"
+                      className="group cursor-pointer rounded-2xl border border-stone-200 bg-white p-3 shadow-2xs hover:shadow-md hover:border-amber-300 transition-all flex items-start gap-3"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="text-base font-bold text-stone-900 group-hover:text-amber-600 transition">
+                          <h4 className="text-sm font-bold text-stone-900 group-hover:text-amber-600 transition leading-tight">
                             {item.name}
                           </h4>
                           {item.isPopular && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-800">
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-800 uppercase tracking-wide">
                               Popular
                             </span>
                           )}
                         </div>
 
-                        <p className="text-xs text-stone-500 mt-1 line-clamp-2">
+                        <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">
                           {item.description}
                         </p>
 
-                        {/* Dietary tags & calories */}
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-400">
-                          {item.calories && <span>{item.calories} kcal •</span>}
-                          {item.dietary.map((tag) => (
+                        {/* Meta row: rating + calories + dietary */}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                          <span className="flex items-center gap-0.5 text-stone-700 font-bold">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+                            {(item.rating || 5.0).toFixed(1)}
+                            <span className="text-stone-400 font-normal ml-0.5">
+                              ({item.ratingCount || 1})
+                            </span>
+                          </span>
+                          {item.calories && (
+                            <>
+                              <span className="text-stone-300">•</span>
+                              <span className="text-stone-400">{item.calories} kcal</span>
+                            </>
+                          )}
+                          {item.dietary.slice(0, 2).map((tag) => (
                             <span
                               key={tag}
                               className="text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-sm capitalize"
@@ -336,26 +348,13 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
                           ))}
                         </div>
 
-                        {/* Dish Rating & Count */}
-                        <div className="mt-2 flex items-center gap-1.5">
-                          <div className="flex items-center gap-0.5 text-amber-500">
-                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-                            <span className="text-xs font-black text-stone-900">
-                              {(item.rating || 5.0).toFixed(1)}
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-stone-400 font-medium">
-                            • {item.ratingCount || 1} {item.ratingCount === 1 ? 'rating' : 'ratings'}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="text-base font-black text-stone-900">
+                        <div className="mt-2 flex items-center justify-between">
+                          <div className="text-sm font-black text-stone-900">
                             {formatUGX(item.price)}
                           </div>
                           <button
                             type="button"
-                            className="flex items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs"
+                            className="flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 text-xs font-bold transition shadow-xs"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             <span>Add</span>
@@ -366,7 +365,7 @@ export const RestaurantDetail: React.FC<RestaurantDetailProps> = ({
                       <img
                         src={item.image}
                         alt={item.name}
-                        className="h-24 w-24 rounded-xl object-cover shrink-0 bg-stone-100"
+                        className="h-20 w-20 sm:h-24 sm:w-24 rounded-xl object-cover shrink-0 bg-stone-100"
                         referrerPolicy="no-referrer"
                       />
                     </div>

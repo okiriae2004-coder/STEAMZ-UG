@@ -2,20 +2,27 @@
 
 /*
 ============================================================
- STEAMZ-UG GLOBAL STYLES
+ STEAMZ-UG GLOBAL THEME
 ============================================================
 
- The application automatically follows the phone/browser
- system appearance:
+ The application follows the device/browser system theme.
 
-   Light mode  -> Light STEAMZ
-   Dark mode   -> Dark STEAMZ
+ LIGHT DEVICE  -> LIGHT UI
+ DARK DEVICE   -> DARK UI
 
- No theme button is required.
- No theme setting is stored.
- The app changes automatically when the device changes
- between Light and Dark mode.
+ This file intentionally handles Tailwind opacity variants
+ because many STEAMZ components use classes such as:
+
+ bg-stone-50/70
+ bg-stone-50/60
+ bg-stone-50/50
+ bg-stone-50/40
+ bg-stone-100/80
+
+ Those variants must also change in dark mode.
+============================================================
 */
+
 
 /* ==========================================================
    GLOBAL
@@ -43,18 +50,6 @@ body,
 *::before,
 *::after {
   box-sizing: border-box;
-}
-
-html {
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
-}
-
-body {
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
 }
 
 
@@ -85,9 +80,9 @@ body {
 
 @media (prefers-color-scheme: dark) {
 
-  /* --------------------------------------------------------
-     MAIN APPLICATION BACKGROUND
-  -------------------------------------------------------- */
+  /* ========================================================
+     CORE PAGE
+  ======================================================== */
 
   html,
   body,
@@ -97,26 +92,22 @@ body {
   }
 
 
-  /* --------------------------------------------------------
+  /* ========================================================
      HEADER
-     
-     IMPORTANT:
-     The previous version forgot these semi-transparent
-     white backgrounds.
-  -------------------------------------------------------- */
+  ======================================================== */
 
   header {
-    background-color: rgba(28, 25, 23, 0.96) !important;
-    border-color: #44403c !important;
+    background-color: rgba(28, 25, 23, 0.97) !important;
     color: #f5f5f4 !important;
+    border-color: #44403c !important;
+  }
+
+  header .bg-white\/95 {
+    background-color: rgba(28, 25, 23, 0.97) !important;
   }
 
   header .bg-white {
     background-color: #1c1917 !important;
-  }
-
-  header .bg-white\/95 {
-    background-color: rgba(28, 25, 23, 0.96) !important;
   }
 
   header .bg-stone-50 {
@@ -125,6 +116,22 @@ body {
 
   header .bg-stone-100 {
     background-color: #292524 !important;
+  }
+
+  header .bg-stone-50\/40 {
+    background-color: rgba(41, 37, 36, 0.40) !important;
+  }
+
+  header .bg-stone-50\/50 {
+    background-color: rgba(41, 37, 36, 0.50) !important;
+  }
+
+  header .bg-stone-50\/60 {
+    background-color: rgba(41, 37, 36, 0.60) !important;
+  }
+
+  header .bg-stone-50\/70 {
+    background-color: rgba(41, 37, 36, 0.70) !important;
   }
 
   header .border-stone-100 {
@@ -136,40 +143,40 @@ body {
   }
 
 
-  /* --------------------------------------------------------
-     MOBILE BOTTOM NAVIGATION
-  -------------------------------------------------------- */
+  /* ========================================================
+     MOBILE NAVIGATION
+  ======================================================== */
 
   #mobile-bottom-nav {
-    background-color: rgba(28, 25, 23, 0.97) !important;
-    border-top-color: #44403c !important;
+    background-color: rgba(28, 25, 23, 0.98) !important;
     color: #f5f5f4 !important;
+    border-top-color: #44403c !important;
+  }
+
+  #mobile-bottom-nav .bg-white\/95 {
+    background-color: rgba(28, 25, 23, 0.98) !important;
   }
 
   #mobile-bottom-nav .bg-white {
     background-color: #1c1917 !important;
   }
 
-  #mobile-bottom-nav .bg-white\/95 {
-    background-color: rgba(28, 25, 23, 0.97) !important;
-  }
-
   #mobile-bottom-nav .border-stone-200 {
     border-color: #44403c !important;
-  }
-
-  #mobile-bottom-nav .hover\:bg-stone-100:hover {
-    background-color: #292524 !important;
   }
 
   #mobile-bottom-nav .hover\:bg-stone-50:hover {
     background-color: #292524 !important;
   }
 
+  #mobile-bottom-nav .hover\:bg-stone-100:hover {
+    background-color: #292524 !important;
+  }
 
-  /* --------------------------------------------------------
-     WHITE BACKGROUNDS
-  -------------------------------------------------------- */
+
+  /* ========================================================
+     STANDARD BACKGROUNDS
+  ======================================================== */
 
   .bg-white {
     background-color: #1c1917 !important;
@@ -181,10 +188,6 @@ body {
 
   .bg-stone-100 {
     background-color: #292524 !important;
-  }
-
-  .bg-stone-100\/60 {
-    background-color: rgba(41, 37, 36, 0.60) !important;
   }
 
   .bg-stone-200 {
@@ -204,26 +207,111 @@ body {
   }
 
 
-  /* --------------------------------------------------------
-     SEMI-TRANSPARENT WHITE BACKGROUNDS
-  -------------------------------------------------------- */
+  /* ========================================================
+     STONE BACKGROUND OPACITY VARIANTS
 
-  .bg-white\/90 {
+     THIS IS THE IMPORTANT FIX.
+  ======================================================== */
+
+  .bg-stone-50\/40 {
+    background-color: rgba(28, 25, 23, 0.40) !important;
+  }
+
+  .bg-stone-50\/50 {
+    background-color: rgba(28, 25, 23, 0.50) !important;
+  }
+
+  .bg-stone-50\/60 {
+    background-color: rgba(28, 25, 23, 0.60) !important;
+  }
+
+  .bg-stone-50\/70 {
+    background-color: rgba(28, 25, 23, 0.70) !important;
+  }
+
+  .bg-stone-50\/80 {
+    background-color: rgba(28, 25, 23, 0.80) !important;
+  }
+
+  .bg-stone-50\/90 {
     background-color: rgba(28, 25, 23, 0.90) !important;
   }
 
-  .bg-white\/95 {
-    background-color: rgba(28, 25, 23, 0.96) !important;
+
+  /* --------------------------------------------------------
+     STONE 100 OPACITY
+  -------------------------------------------------------- */
+
+  .bg-stone-100\/40 {
+    background-color: rgba(41, 37, 36, 0.40) !important;
   }
+
+  .bg-stone-100\/50 {
+    background-color: rgba(41, 37, 36, 0.50) !important;
+  }
+
+  .bg-stone-100\/60 {
+    background-color: rgba(41, 37, 36, 0.60) !important;
+  }
+
+  .bg-stone-100\/70 {
+    background-color: rgba(41, 37, 36, 0.70) !important;
+  }
+
+  .bg-stone-100\/80 {
+    background-color: rgba(41, 37, 36, 0.80) !important;
+  }
+
+  .bg-stone-100\/90 {
+    background-color: rgba(41, 37, 36, 0.90) !important;
+  }
+
+
+  /* --------------------------------------------------------
+     STONE 200 OPACITY
+  -------------------------------------------------------- */
+
+  .bg-stone-200\/40 {
+    background-color: rgba(68, 64, 60, 0.40) !important;
+  }
+
+  .bg-stone-200\/50 {
+    background-color: rgba(68, 64, 60, 0.50) !important;
+  }
+
+  .bg-stone-200\/60 {
+    background-color: rgba(68, 64, 60, 0.60) !important;
+  }
+
+  .bg-stone-200\/70 {
+    background-color: rgba(68, 64, 60, 0.70) !important;
+  }
+
+  .bg-stone-200\/80 {
+    background-color: rgba(68, 64, 60, 0.80) !important;
+  }
+
+
+  /* ========================================================
+     WHITE OPACITY BACKGROUNDS
+  ======================================================== */
 
   .bg-white\/80 {
     background-color: rgba(28, 25, 23, 0.88) !important;
   }
 
+  .bg-white\/90 {
+    background-color: rgba(28, 25, 23, 0.94) !important;
+  }
 
-  /* --------------------------------------------------------
+  .bg-white\/95 {
+    background-color: rgba(28, 25, 23, 0.97) !important;
+  }
+
+
+  /* ========================================================
      STONE TEXT
-  -------------------------------------------------------- */
+  ======================================================== */
 
   .text-stone-900 {
     color: #f5f5f4 !important;
@@ -254,9 +342,9 @@ body {
   }
 
 
-  /* --------------------------------------------------------
+  /* ========================================================
      GRAY TEXT
-  -------------------------------------------------------- */
+  ======================================================== */
 
   .text-gray-900 {
     color: #f5f5f4 !important;
@@ -283,9 +371,9 @@ body {
   }
 
 
-  /* --------------------------------------------------------
+  /* ========================================================
      BORDERS
-  -------------------------------------------------------- */
+  ======================================================== */
 
   .border-stone-100 {
     border-color: #292524 !important;
@@ -312,9 +400,9 @@ body {
   }
 
 
-  /* --------------------------------------------------------
+  /* ========================================================
      DIVIDERS
-  -------------------------------------------------------- */
+  ======================================================== */
 
   .divide-stone-100 > :not([hidden]) ~ :not([hidden]) {
     border-color: #292524 !important;
@@ -325,9 +413,9 @@ body {
   }
 
 
-  /* --------------------------------------------------------
-     HOVER BACKGROUNDS
-  -------------------------------------------------------- */
+  /* ========================================================
+     HOVER STATES
+  ======================================================== */
 
   .hover\:bg-stone-50:hover {
     background-color: #292524 !important;
@@ -350,9 +438,9 @@ body {
   }
 
 
-  /* --------------------------------------------------------
-     INPUTS
-  -------------------------------------------------------- */
+  /* ========================================================
+     INPUTS / SELECTS
+  ======================================================== */
 
   input,
   textarea,
@@ -371,7 +459,7 @@ body {
   input:focus,
   textarea:focus,
   select:focus {
-    border-color: #a8a29e;
+    border-color: #f59e0b;
   }
 
   option {
@@ -379,20 +467,15 @@ body {
     color: #f5f5f4;
   }
 
-
-  /* --------------------------------------------------------
-     CHECKBOXES / RADIO BUTTONS
-  -------------------------------------------------------- */
-
   input[type="checkbox"],
   input[type="radio"] {
     accent-color: #f59e0b;
   }
 
 
-  /* --------------------------------------------------------
-     MODAL BACKDROPS
-  -------------------------------------------------------- */
+  /* ========================================================
+     MODAL BACKDROP
+  ======================================================== */
 
   .bg-black\/20 {
     background-color: rgba(0, 0, 0, 0.55) !important;
@@ -419,9 +502,9 @@ body {
   }
 
 
-  /* --------------------------------------------------------
-     DISABLED ELEMENTS
-  -------------------------------------------------------- */
+  /* ========================================================
+     DISABLED
+  ======================================================== */
 
   .disabled\:text-stone-300:disabled {
     color: #57534e !important;
@@ -432,9 +515,9 @@ body {
   }
 
 
-  /* --------------------------------------------------------
+  /* ========================================================
      SCROLLBAR
-  -------------------------------------------------------- */
+  ======================================================== */
 
   * {
     scrollbar-color: #57534e #1c1917;

@@ -40,9 +40,21 @@ function MainLayout() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSpotSelectorOpen, setIsSpotSelectorOpen] = useState(false);
   const [isTimeSimulatorOpen, setIsTimeSimulatorOpen] = useState(false);
-  const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  /*
+   * Customer navigation is now page-based.
+   *
+   * "home" = restaurant list / restaurant detail
+   * "orders" = live order tracker
+   *
+   * The bottom MobileNav remains mounted all the time, so it
+   * stays visible when the customer moves between these views.
+   */
+  const [customerView, setCustomerView] = useState<'home' | 'orders'>(
+    'home'
+  );
 
   const [selectedTrackingOrderId, setSelectedTrackingOrderId] =
     useState<string | null>(null);
@@ -53,8 +65,6 @@ function MainLayout() {
 
   /*
    * Keep authentication/profile state synchronized with the application role.
-   * This is intentionally unchanged in behaviour so existing owner/admin
-   * permissions continue to work.
    */
   useEffect(() => {
     if (userProfile?.role) {
@@ -71,13 +81,14 @@ function MainLayout() {
   ]);
 
   /*
-   * Open the order tracker when another part of the application asks
-   * App.tsx to display an active order.
+   * If another part of the application asks App.tsx to display
+   * an active order, navigate to the normal Orders/Tracker page
+   * instead of opening a modal.
    */
   useEffect(() => {
     if (activeTrackingOrderId) {
       setSelectedTrackingOrderId(activeTrackingOrderId);
-      setIsTrackerOpen(true);
+      setCustomerView('orders');
       setActiveTrackingOrderId(null);
     }
   }, [
@@ -161,8 +172,15 @@ function MainLayout() {
 
     if (active) {
       setSelectedTrackingOrderId(active.id);
-      setIsTrackerOpen(true);
+    } else {
+      setSelectedTrackingOrderId(null);
     }
+
+    /*
+     * Always navigate to the Orders page.
+     * The tracker itself handles the "no order" state.
+     */
+    setCustomerView('orders');
   };
 
   /*
@@ -176,6 +194,14 @@ function MainLayout() {
     setSelectedDropSpotId(spotId);
     setUserRole('customer');
     setSelectedRestaurant(null);
+    setCustomerView('home');
+  };
+
+  /*
+   * Return from order tracking to the normal customer experience.
+   */
+  const handleCloseOrderTracker = () => {
+    setCustomerView('home');
   };
 
   return (
@@ -205,7 +231,22 @@ function MainLayout() {
         {/* CUSTOMER EXPERIENCE */}
         {userRole === 'customer' && (
           <>
-            {selectedRestaurant ? (
+            {customerView === 'orders' ? (
+              /*
+               * IMPORTANT:
+               * The tracker is rendered as normal page content.
+               * It is NOT a fixed modal overlay.
+               *
+               * This allows MobileNav to remain visible at the
+               * bottom of the screen on the Orders page.
+               */
+              <OrderTrackerModal
+                orderId={selectedTrackingOrderId}
+                isOpen={true}
+                embedded={true}
+                onClose={handleCloseOrderTracker}
+              />
+            ) : selectedRestaurant ? (
               <RestaurantDetail
                 restaurant={selectedRestaurant}
                 onBack={() =>
@@ -217,9 +258,10 @@ function MainLayout() {
               />
             ) : (
               <RestaurantList
-                onSelectRestaurant={(restaurant) =>
-                  setSelectedRestaurant(restaurant)
-                }
+                onSelectRestaurant={(restaurant) => {
+                  setSelectedRestaurant(restaurant);
+                  setCustomerView('home');
+                }}
                 onOpenSpotSelector={() =>
                   setIsSpotSelectorOpen(true)
                 }
@@ -242,9 +284,10 @@ function MainLayout() {
         {/* ADMIN EXPERIENCE */}
         {userRole === 'admin' && (
           <AdminDashboard
-            onBackToCustomer={() =>
-              setUserRole('customer')
-            }
+            onBackToCustomer={() => {
+              setUserRole('customer');
+              setCustomerView('home');
+            }}
           />
         )}
 
@@ -258,6 +301,12 @@ function MainLayout() {
         )}
       </main>
 
+      {/*
+       * IMPORTANT:
+       * MobileNav is deliberately outside the customer-view
+       * conditional. It therefore stays mounted while the user
+       * moves between Home, Restaurant, Orders and Account.
+       */}
       <MobileNav
         onOpenCart={() => setIsCartOpen(true)}
         onOpenActiveTracker={
@@ -306,10 +355,14 @@ function MainLayout() {
           setIsSpotSelectorOpen(true)
         }
         onOpenOrderTracker={(orderId) => {
-          setSelectedTrackingOrderId(
-            orderId
-          );
-          setIsTrackerOpen(true);
+          /*
+           * After an order is placed from the cart,
+           * navigate to the normal Orders page instead
+           * of opening the tracker as a popup.
+           */
+          setSelectedTrackingOrderId(orderId);
+          setIsCartOpen(false);
+          setCustomerView('orders');
         }}
       />
 
@@ -321,9 +374,11 @@ function MainLayout() {
         }
       />
 
-      {/* INTERNAL TIME SIMULATOR
-          Still available to the application internally,
-          but no longer exposed in the customer UI. */}
+      {/*
+       * INTERNAL TIME SIMULATOR
+       * Still available to the application internally,
+       * but not exposed in the normal customer navigation.
+       */}
       <TimeSimulatorModal
         isOpen={isTimeSimulatorOpen}
         onClose={() =>
@@ -331,14 +386,14 @@ function MainLayout() {
         }
       />
 
-      {/* ORDER TRACKER */}
-      <OrderTrackerModal
-        orderId={selectedTrackingOrderId}
-        isOpen={isTrackerOpen}
-        onClose={() =>
-          setIsTrackerOpen(false)
-        }
-      />
+      {/*
+       * ORDER TRACKER
+       *
+       * No separate modal is mounted here anymore.
+       *
+       * The tracker is rendered inside the normal customer
+       * page above, which keeps the bottom navigation visible.
+       */}
 
       {/* AUTH */}
       <AuthModal

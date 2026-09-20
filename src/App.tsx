@@ -70,26 +70,18 @@ function MainLayout() {
     useState<CustomerView>('home');
 
   /*
-   * Remembers the page the customer was on before
-   * opening Cart, Orders or Account.
+   * Remembers the customer page before opening
+   * Cart, Orders or Account.
    *
-   * This is what makes the Back button behave like
-   * normal app navigation instead of always returning
-   * to Home.
+   * This makes Back return to the page the customer
+   * actually came from instead of always returning Home.
    */
   const [previousCustomerView, setPreviousCustomerView] =
     useState<CustomerView>('home');
 
-  const [selectedTrackingOrderId, setSelectedTrackingOrderId] =
-    useState<string | null>(null);
-
-  const [ownerActiveTab, setOwnerActiveTab] = useState<
-    'analytics' | 'orders' | 'menu' | 'settings'
-  >('menu');
-
   /*
-   * Navigate to another customer page while remembering
-   * where the customer came from.
+   * Navigate between normal customer pages while
+   * remembering the current page.
    */
   const navigateCustomerView = (
     nextView: CustomerView
@@ -97,6 +89,13 @@ function MainLayout() {
     setPreviousCustomerView(customerView);
     setCustomerView(nextView);
   };
+
+  const [selectedTrackingOrderId, setSelectedTrackingOrderId] =
+    useState<string | null>(null);
+
+  const [ownerActiveTab, setOwnerActiveTab] = useState<
+    'analytics' | 'orders' | 'menu' | 'settings'
+  >('menu');
 
   /*
    * Keep authentication/profile state synchronized
@@ -229,7 +228,389 @@ function MainLayout() {
       setSelectedTrackingOrderId(null);
     }
 
-    /*
-     * Remember the page the customer was on.
-     *
-    
+    setPreviousCustomerView(
+      customerView
+    );
+
+    setCustomerView('orders');
+  };
+
+  /*
+   * Home navigation.
+   *
+   * Home is a root customer destination, so pressing
+   * Home should also reset the remembered back destination.
+   */
+  const handleOpenHome = () => {
+    setCustomerView('home');
+    setPreviousCustomerView('home');
+  };
+
+  /*
+   * Customer page navigation helpers.
+   */
+  const handleOpenCartPage = () => {
+    navigateCustomerView('cart');
+  };
+
+  const handleOpenAccountPage = () => {
+    navigateCustomerView('account');
+  };
+
+  /*
+   * Close the current customer page and return to
+   * the page the customer came from.
+   */
+  const handleCloseCustomerPage = () => {
+    setCustomerView(previousCustomerView);
+  };
+
+  /*
+   * Existing Spot Directory behavior.
+   */
+  const handleSelectSpotAndShop = (
+    spotId: string
+  ) => {
+    setSelectedDropSpotId(spotId);
+    setUserRole('customer');
+    setSelectedRestaurant(null);
+    setCustomerView('home');
+    setPreviousCustomerView('home');
+  };
+
+  /*
+   * Header cart behavior.
+   *
+   * Customers get the new normal Cart page.
+   * Other roles retain the old modal behavior.
+   */
+  const handleHeaderCart = () => {
+    if (
+      userRole === 'customer' ||
+      userRole === 'spot_explorer'
+    ) {
+      handleOpenCartPage();
+      return;
+    }
+
+    setIsCartOpen(true);
+  };
+
+  /*
+   * Header profile behavior.
+   *
+   * Customers get the new normal Account page.
+   * Admin/owner users retain the existing profile modal.
+   */
+  const handleHeaderProfile = () => {
+    if (
+      userRole === 'customer' ||
+      userRole === 'spot_explorer'
+    ) {
+      handleOpenAccountPage();
+      return;
+    }
+
+    setIsProfileModalOpen(true);
+  };
+
+  return (
+    <div className="min-h-screen bg-stone-100/60 text-stone-900 flex flex-col selection:bg-amber-200">
+
+      <Header
+        onOpenCart={handleHeaderCart}
+        onOpenSpotSelector={() =>
+          setIsSpotSelectorOpen(true)
+        }
+        onOpenTimeSimulator={() =>
+          setIsTimeSimulatorOpen(true)
+        }
+        onOpenActiveTracker={
+          handleOpenActiveTracker
+        }
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
+        }
+        onOpenProfile={
+          handleHeaderProfile
+        }
+      />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 pb-28 md:pb-10">
+
+        {/* CUSTOMER EXPERIENCE */}
+        {(userRole === 'customer' ||
+          userRole === 'spot_explorer') && (
+          <>
+
+            {/* HOME */}
+            {customerView === 'home' && (
+              <>
+                {selectedRestaurant ? (
+                  <RestaurantDetail
+                    restaurant={selectedRestaurant}
+                    onBack={() =>
+                      setSelectedRestaurant(null)
+                    }
+                    onOpenSpotSelector={() =>
+                      setIsSpotSelectorOpen(true)
+                    }
+                  />
+                ) : (
+                  <RestaurantList
+                    onSelectRestaurant={(
+                      restaurant
+                    ) => {
+                      setSelectedRestaurant(
+                        restaurant
+                      );
+                      setCustomerView('home');
+                    }}
+                    onOpenSpotSelector={() =>
+                      setIsSpotSelectorOpen(true)
+                    }
+                    onOpenAuth={() =>
+                      setIsAuthModalOpen(true)
+                    }
+                  />
+                )}
+              </>
+            )}
+
+            {/* CART */}
+            {customerView === 'cart' && (
+              <CartDrawer
+                isOpen={true}
+                embedded={true}
+                onClose={
+                  handleCloseCustomerPage
+                }
+                onOpenSpotSelector={() =>
+                  setIsSpotSelectorOpen(true)
+                }
+                onOpenOrderTracker={(
+                  orderId
+                ) => {
+                  setSelectedTrackingOrderId(
+                    orderId
+                  );
+
+                  setPreviousCustomerView(
+                    'cart'
+                  );
+
+                  setCustomerView('orders');
+                }}
+              />
+            )}
+
+            {/* ORDERS / TRACKING */}
+            {customerView === 'orders' && (
+              <OrderTrackerModal
+                orderId={
+                  selectedTrackingOrderId
+                }
+                isOpen={true}
+                embedded={true}
+                onClose={
+                  handleCloseCustomerPage
+                }
+              />
+            )}
+
+            {/* ACCOUNT */}
+            {customerView === 'account' && (
+              <ProfileModal
+                isOpen={true}
+                embedded={true}
+                onClose={
+                  handleCloseCustomerPage
+                }
+                onOpenAdminSpots={() => {
+                  setCustomerView('home');
+                  setPreviousCustomerView('home');
+                  setUserRole('admin');
+                }}
+              />
+            )}
+
+          </>
+        )}
+
+        {/* RESTAURANT OWNER EXPERIENCE */}
+        {userRole === 'owner' && (
+          <OwnerDashboard
+            activeTab={ownerActiveTab}
+            onTabChange={setOwnerActiveTab}
+          />
+        )}
+
+        {/* ADMIN EXPERIENCE */}
+        {userRole === 'admin' && (
+          <AdminDashboard
+            onBackToCustomer={() => {
+              setUserRole('customer');
+              setSelectedRestaurant(null);
+              setCustomerView('home');
+              setPreviousCustomerView('home');
+            }}
+          />
+        )}
+
+        {/* SPOT DIRECTORY */}
+        {userRole === 'spot_explorer' && (
+          <SpotDirectory
+            onSelectSpotAndShop={
+              handleSelectSpotAndShop
+            }
+          />
+        )}
+
+      </main>
+
+      {/*
+       * CUSTOMER BOTTOM NAV
+       *
+       * Home | Cart | Track order | Account
+       *
+       * The active item follows customerView.
+       */}
+      <MobileNav
+        onOpenHome={
+          handleOpenHome
+        }
+        onOpenCart={
+          handleOpenCartPage
+        }
+        onOpenActiveTracker={
+          handleOpenActiveTracker
+        }
+        onOpenSpotSelector={() =>
+          setIsSpotSelectorOpen(true)
+        }
+        onOpenAuth={() =>
+          setIsAuthModalOpen(true)
+        }
+        onOpenProfile={
+          handleOpenAccountPage
+        }
+        activeCustomerView={
+          customerView
+        }
+        onOpenAccount={
+          handleOpenAccountPage
+        }
+        onOpenAdminSpots={() =>
+          setUserRole('admin')
+        }
+        ownerActiveTab={
+          ownerActiveTab
+        }
+        setOwnerActiveTab={
+          setOwnerActiveTab
+        }
+      />
+
+      <footer className="mt-10 mb-20 md:mb-0 bg-white border-t border-stone-200 py-5 text-xs text-stone-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-amber-500 text-white flex items-center justify-center">
+              <Flame className="h-4 w-4 fill-white" />
+            </div>
+
+            <span className="font-bold text-stone-500">
+              STEAMZ
+            </span>
+          </div>
+        </div>
+      </footer>
+
+      {/*
+       * Legacy cart modal.
+       *
+       * This remains available for non-customer contexts.
+       * Customer navigation uses the embedded Cart page above.
+       */}
+      {userRole !== 'customer' &&
+        userRole !== 'spot_explorer' && (
+          <CartDrawer
+            isOpen={isCartOpen}
+            onClose={() =>
+              setIsCartOpen(false)
+            }
+            onOpenSpotSelector={() =>
+              setIsSpotSelectorOpen(true)
+            }
+            onOpenOrderTracker={(
+              orderId
+            ) => {
+              setSelectedTrackingOrderId(
+                orderId
+              );
+
+              setIsCartOpen(false);
+              setUserRole('customer');
+
+              setPreviousCustomerView(
+                'cart'
+              );
+
+              setCustomerView('orders');
+            }}
+          />
+        )}
+
+      <SpotSelectorModal
+        isOpen={isSpotSelectorOpen}
+        onClose={() =>
+          setIsSpotSelectorOpen(false)
+        }
+      />
+
+      <TimeSimulatorModal
+        isOpen={isTimeSimulatorOpen}
+        onClose={() =>
+          setIsTimeSimulatorOpen(false)
+        }
+      />
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() =>
+          setIsAuthModalOpen(false)
+        }
+      />
+
+      {/*
+       * Legacy profile modal for admin/owner contexts.
+       *
+       * Customer accounts use the normal Account page above.
+       */}
+      {userRole !== 'customer' &&
+        userRole !== 'spot_explorer' &&
+        isProfileModalOpen && (
+          <ProfileModal
+            isOpen={true}
+            onClose={() =>
+              setIsProfileModalOpen(false)
+            }
+            onOpenAdminSpots={() => {
+              setIsProfileModalOpen(false);
+              setUserRole('admin');
+            }}
+          />
+        )}
+
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppProvider>
+        <MainLayout />
+      </AppProvider>
+    </AuthProvider>
+  );
+}

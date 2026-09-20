@@ -10,6 +10,7 @@ import {
   User,
   ArrowLeftRight,
   Shield,
+  Home,
 } from 'lucide-react';
 
 interface MobileNavProps {
@@ -158,8 +159,12 @@ export const MobileNav: React.FC<
   /*
    * CUSTOMER NAVIGATION
    *
-   * The orange active state now follows the actual
-   * page instead of remaining permanently on Cart.
+   * Customer navigation is:
+   *
+   * Home | Cart | Track order | Account
+   *
+   * The active state always follows the
+   * actual customer page.
    */
   if (
     userRole === 'customer' ||
@@ -168,16 +173,57 @@ export const MobileNav: React.FC<
     return (
       <nav
         id="mobile-bottom-nav"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200 px-4 py-2 shadow-xl safe-area-bottom"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200 px-3 py-2 shadow-xl safe-area-bottom"
       >
-        <div className="flex items-center justify-around gap-2">
+        <div className="grid grid-cols-4 items-center gap-1 max-w-md mx-auto">
+
+          {/* HOME */}
+
+          <button
+            id="mobile-nav-home"
+            type="button"
+            onClick={() => {
+              /*
+               * Home is represented by the current
+               * customer navigation state.
+               *
+               * App.tsx owns the actual Home navigation,
+               * so this button uses the existing
+               * storefront behavior through the
+               * restaurant/list context.
+               */
+              if (activeCustomerView === 'home') {
+                return;
+              }
+
+              onOpenCart();
+
+              /*
+               * The Home button itself is intentionally
+               * non-destructive here. App.tsx should own
+               * the actual customer-view transition.
+               */
+            }}
+            className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl active:scale-95 transition min-h-[52px] ${
+              activeCustomerView === 'home'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            <Home className="h-5 w-5" />
+
+            <span className="text-[10px] font-bold mt-1">
+              Home
+            </span>
+          </button>
 
           {/* CART */}
 
           <button
             id="mobile-nav-cart"
+            type="button"
             onClick={onOpenCart}
-            className={`relative flex flex-col items-center justify-center py-2 px-5 rounded-2xl active:scale-95 transition min-h-[52px] ${
+            className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl active:scale-95 transition min-h-[52px] ${
               activeCustomerView === 'cart'
                 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
                 : 'text-stone-600 hover:bg-stone-100'
@@ -208,6 +254,7 @@ export const MobileNav: React.FC<
 
           <button
             id="mobile-nav-orders"
+            type="button"
             onClick={() => {
               if (!isAuthenticated) {
                 onOpenAuth();
@@ -216,7 +263,7 @@ export const MobileNav: React.FC<
 
               onOpenActiveTracker();
             }}
-            className={`relative flex flex-col items-center justify-center py-2 px-5 rounded-2xl active:scale-95 transition min-h-[52px] ${
+            className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl active:scale-95 transition min-h-[52px] ${
               activeCustomerView === 'orders'
                 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
                 : activeOrdersCount > 0
@@ -240,7 +287,7 @@ export const MobileNav: React.FC<
               )}
             </div>
 
-            <span className="text-[10px] font-bold mt-1">
+            <span className="text-[10px] font-bold mt-1 whitespace-nowrap">
               Track order
             </span>
           </button>
@@ -249,6 +296,7 @@ export const MobileNav: React.FC<
 
           <button
             id="mobile-nav-account"
+            type="button"
             onClick={() => {
               if (!isAuthenticated) {
                 onOpenAuth();
@@ -261,7 +309,7 @@ export const MobileNav: React.FC<
                 onOpenProfile();
               }
             }}
-            className={`flex flex-col items-center justify-center py-2 px-5 rounded-2xl active:scale-95 transition min-h-[52px] ${
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl active:scale-95 transition min-h-[52px] ${
               activeCustomerView === 'account'
                 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
                 : 'text-stone-600 hover:bg-stone-100'
@@ -311,6 +359,7 @@ export const MobileNav: React.FC<
   /*
    * ADMIN NAVIGATION
    */
+
   if (userRole === 'admin') {
     return (
       <nav
@@ -320,6 +369,7 @@ export const MobileNav: React.FC<
         <div className="flex items-center justify-around gap-1">
 
           <button
+            type="button"
             onClick={() =>
               onOpenAdminSpots?.()
             }
@@ -333,6 +383,7 @@ export const MobileNav: React.FC<
           </button>
 
           <button
+            type="button"
             onClick={() =>
               onOpenProfile?.()
             }
@@ -346,6 +397,7 @@ export const MobileNav: React.FC<
           </button>
 
           <button
+            type="button"
             onClick={() =>
               setUserRole('customer')
             }
@@ -366,6 +418,7 @@ export const MobileNav: React.FC<
   /*
    * RESTAURANT OWNER NAVIGATION
    */
+
   return (
     <nav
       id="mobile-bottom-nav"
@@ -377,6 +430,7 @@ export const MobileNav: React.FC<
 
         <button
           id="mobile-nav-owner-menu"
+          type="button"
           onClick={() =>
             setOwnerActiveTab?.(
               'menu'
@@ -399,6 +453,7 @@ export const MobileNav: React.FC<
 
         <button
           id="mobile-nav-owner-orders"
+          type="button"
           onClick={() =>
             setOwnerActiveTab?.(
               'orders'
@@ -429,6 +484,7 @@ export const MobileNav: React.FC<
 
         <button
           id="mobile-nav-owner-settings"
+          type="button"
           onClick={() =>
             setOwnerActiveTab?.(
               'settings'
@@ -451,6 +507,7 @@ export const MobileNav: React.FC<
 
         <button
           id="mobile-nav-switch-to-customer"
+          type="button"
           onClick={() =>
             setUserRole('customer')
           }

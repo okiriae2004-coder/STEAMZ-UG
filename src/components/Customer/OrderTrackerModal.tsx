@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { OrderStatus } from '../../types';
+
 import {
-  X,
   MapPin,
   Clock,
   KeyRound,
@@ -17,28 +17,28 @@ import {
   MessageSquare,
   GraduationCap,
   Package,
+  ArrowLeft,
 } from 'lucide-react';
+
 import { FeedbackModal } from './FeedbackModal';
-import { formatUGX, DEFAULT_BATCH_FEE_UGX } from '../../utils/currency';
+import {
+  formatUGX,
+  DEFAULT_BATCH_FEE_UGX,
+} from '../../utils/currency';
 
 interface OrderTrackerModalProps {
   orderId: string | null;
   isOpen: boolean;
   onClose: () => void;
-
-  /*
-   * When embedded=true, the tracker behaves like a normal
-   * page instead of a full-screen modal.
-   *
-   * This is what keeps the bottom navigation visible.
-   */
   embedded?: boolean;
 }
 
 const STATUS_STEPS: {
   key: OrderStatus;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{
+    className?: string;
+  }>;
 }[] = [
   {
     key: 'placed',
@@ -93,20 +93,33 @@ export const OrderTrackerModal: React.FC<
   const [showFeedbackModal, setShowFeedbackModal] =
     useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen && !embedded) {
+    return null;
+  }
 
   /*
-   * If the customer has no order, still show a proper
-   * Orders page rather than a blank screen.
+   * NO ORDER
    */
+
   if (!orderId) {
-    if (!embedded) return null;
+    if (!embedded) {
+      return null;
+    }
 
     return (
       <div className="w-full max-w-3xl mx-auto">
         <div className="rounded-3xl bg-white border border-stone-200 shadow-sm overflow-hidden">
 
-          <div className="flex items-center justify-between p-5 sm:p-6 border-b border-stone-100 bg-stone-50/50">
+          <div className="flex items-center gap-3 p-5 sm:p-6 border-b border-stone-100 bg-stone-50/50">
+
+            <button
+              onClick={onClose}
+              className="rounded-xl p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-900 transition shrink-0"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+
             <div>
               <h2 className="text-xl font-bold text-stone-900">
                 Your Orders
@@ -117,15 +130,10 @@ export const OrderTrackerModal: React.FC<
               </p>
             </div>
 
-            <button
-              onClick={onClose}
-              className="rounded-xl px-3 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-100 transition"
-            >
-              Back
-            </button>
           </div>
 
           <div className="p-8 sm:p-12 text-center">
+
             <Package className="h-10 w-10 mx-auto text-stone-300" />
 
             <h3 className="mt-3 text-lg font-bold text-stone-800">
@@ -142,6 +150,7 @@ export const OrderTrackerModal: React.FC<
             >
               Browse restaurants
             </button>
+
           </div>
         </div>
       </div>
@@ -152,12 +161,26 @@ export const OrderTrackerModal: React.FC<
     (o) => o.id === orderId
   );
 
+  /*
+   * ORDER NOT FOUND
+   */
+
   if (!order) {
-    if (!embedded) return null;
+    if (!embedded) {
+      return null;
+    }
 
     return (
       <div className="w-full max-w-3xl mx-auto">
         <div className="rounded-3xl bg-white border border-stone-200 shadow-sm p-8 sm:p-12 text-center">
+
+          <button
+            onClick={onClose}
+            className="mx-auto mb-5 rounded-xl p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-900 transition"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
 
           <h2 className="text-xl font-bold text-stone-900">
             Order not found
@@ -173,18 +196,21 @@ export const OrderTrackerModal: React.FC<
           >
             Back to restaurants
           </button>
+
         </div>
       </div>
     );
   }
 
   const spot = dropSpots.find(
-    (s) => s.id === order.dropSpotId
+    (s) =>
+      s.id === order.dropSpotId
   );
 
   const university =
     universities.find(
-      (u) => u.id === order.universityId
+      (u) =>
+        u.id === order.universityId
     ) || universities[0];
 
   const getStepIndex = (
@@ -211,6 +237,9 @@ export const OrderTrackerModal: React.FC<
     );
   };
 
+  /*
+   * Existing development status simulator retained.
+   */
   const handleNextStatusSimulation = () => {
     const nextIdx =
       currentStepIndex + 1;
@@ -230,7 +259,8 @@ export const OrderTrackerModal: React.FC<
 
   const whatsappNumber =
     order.customerWhatsapp ||
-    order.customerPhone;
+    order.customerPhone ||
+    '';
 
   const whatsappText =
     encodeURIComponent(
@@ -246,16 +276,6 @@ export const OrderTrackerModal: React.FC<
   const whatsappUrl =
     `https://wa.me/${cleanPhone}?text=${whatsappText}`;
 
-  /*
-   * The actual tracker content.
-   *
-   * embedded=true:
-   *   normal page, no fixed overlay
-   *
-   * embedded=false:
-   *   retains the original modal behavior if another
-   *   part of the application ever needs it.
-   */
   const trackerContent = (
     <div
       className={
@@ -265,10 +285,20 @@ export const OrderTrackerModal: React.FC<
       }
     >
 
-      {/* Header */}
-      <div className="flex items-center justify-between p-5 sm:p-6 border-b border-stone-100 bg-stone-50/50">
+      {/* HEADER */}
 
-        <div>
+      <div className="flex items-center gap-3 p-5 sm:p-6 border-b border-stone-100 bg-stone-50/50">
+
+        <button
+          onClick={onClose}
+          className="rounded-xl p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-900 transition shrink-0"
+          aria-label="Back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+
+        <div className="min-w-0 flex-1">
+
           <div className="flex items-center gap-2 flex-wrap">
 
             <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-stone-900 text-white">
@@ -290,20 +320,14 @@ export const OrderTrackerModal: React.FC<
           <h2 className="text-xl font-bold text-stone-900 mt-1">
             Live Order Tracker
           </h2>
-        </div>
 
-        <button
-          onClick={onClose}
-          className="rounded-xl p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition"
-          aria-label="Back"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        </div>
       </div>
 
       <div className="p-5 sm:p-6 space-y-6">
 
-        {/* Locker PIN & Drop Spot Hero Card */}
+        {/* SECURE PICKUP */}
+
         <div className="rounded-3xl bg-gradient-to-br from-stone-900 via-stone-800 to-amber-950 p-5 sm:p-6 text-white shadow-xl relative overflow-hidden">
 
           <div className="absolute right-0 top-0 -mt-8 -mr-8 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl" />
@@ -311,6 +335,7 @@ export const OrderTrackerModal: React.FC<
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
 
             <div>
+
               <span className="text-xs font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                 <KeyRound className="h-4 w-4" />
                 Secure Pickup Credentials
@@ -345,6 +370,7 @@ export const OrderTrackerModal: React.FC<
                   {order.dropSpotLockerCode}
                 </strong>
               </div>
+
             </div>
 
             <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-6">
@@ -397,10 +423,12 @@ export const OrderTrackerModal: React.FC<
                 </span>
               </a>
             )}
+
           </div>
         </div>
 
-        {/* Step Progress Tracker */}
+        {/* STATUS PIPELINE */}
+
         <div className="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5">
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
@@ -478,7 +506,8 @@ export const OrderTrackerModal: React.FC<
           </div>
         </div>
 
-        {/* Status History Logs */}
+        {/* STATUS HISTORY */}
+
         <div className="space-y-3">
 
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -519,7 +548,8 @@ export const OrderTrackerModal: React.FC<
           </div>
         </div>
 
-        {/* Order Items Summary */}
+        {/* ORDER ITEMS */}
+
         <div className="space-y-3">
 
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -610,10 +640,12 @@ export const OrderTrackerModal: React.FC<
               </span>
 
             </div>
+
           </div>
         </div>
 
-        {/* Feedback Trigger / Action */}
+        {/* CUSTOMER ACTIONS */}
+
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
 
           {order.status ===
@@ -661,8 +693,8 @@ export const OrderTrackerModal: React.FC<
               <CheckCircle2 className="h-4 w-4" />
 
               <span>
-                Thank you! Your feedback has been
-                shared with {order.restaurantName}.
+                Thank you! Your feedback has been shared with{' '}
+                {order.restaurantName}.
               </span>
 
             </div>
@@ -674,10 +706,9 @@ export const OrderTrackerModal: React.FC<
   );
 
   /*
-   * Embedded/page mode:
-   * no overlay, no fixed positioning.
-   * This is the mode STEAMZ now uses from App.tsx.
+   * NORMAL CUSTOMER PAGE
    */
+
   if (embedded) {
     return (
       <>
@@ -699,16 +730,13 @@ export const OrderTrackerModal: React.FC<
   }
 
   /*
-   * Legacy modal mode.
-   * Kept so this component remains reusable elsewhere
-   * without breaking existing functionality.
+   * LEGACY MODAL MODE
    */
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-xs p-3 sm:p-4">
-
         {trackerContent}
-
       </div>
 
       {showFeedbackModal && (

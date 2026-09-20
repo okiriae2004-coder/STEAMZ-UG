@@ -22,6 +22,12 @@ import { SpotDirectory } from './components/Spots/SpotDirectory';
 import { Restaurant } from './types';
 import { Flame } from 'lucide-react';
 
+type CustomerView =
+  | 'home'
+  | 'cart'
+  | 'orders'
+  | 'account';
+
 function MainLayout() {
   const {
     userRole,
@@ -37,24 +43,31 @@ function MainLayout() {
   const [selectedRestaurant, setSelectedRestaurant] =
     useState<Restaurant | null>(null);
 
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isSpotSelectorOpen, setIsSpotSelectorOpen] = useState(false);
-  const [isTimeSimulatorOpen, setIsTimeSimulatorOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] =
+    useState(false);
+
+  const [isSpotSelectorOpen, setIsSpotSelectorOpen] =
+    useState(false);
+
+  const [isTimeSimulatorOpen, setIsTimeSimulatorOpen] =
+    useState(false);
+
+  const [isAuthModalOpen, setIsAuthModalOpen] =
+    useState(false);
+
+  const [isProfileModalOpen, setIsProfileModalOpen] =
+    useState(false);
 
   /*
-   * Customer navigation is now page-based.
+   * Customer navigation is page-based.
    *
-   * "home" = restaurant list / restaurant detail
-   * "orders" = live order tracker
-   *
-   * The bottom MobileNav remains mounted all the time, so it
-   * stays visible when the customer moves between these views.
+   * home    = restaurant list / restaurant detail
+   * cart    = normal cart page
+   * orders  = normal order tracking page
+   * account = normal account/profile page
    */
-  const [customerView, setCustomerView] = useState<'home' | 'orders'>(
-    'home'
-  );
+  const [customerView, setCustomerView] =
+    useState<CustomerView>('home');
 
   const [selectedTrackingOrderId, setSelectedTrackingOrderId] =
     useState<string | null>(null);
@@ -64,7 +77,8 @@ function MainLayout() {
   >('menu');
 
   /*
-   * Keep authentication/profile state synchronized with the application role.
+   * Keep authentication/profile state synchronized
+   * with the application role.
    */
   useEffect(() => {
     if (userProfile?.role) {
@@ -72,7 +86,9 @@ function MainLayout() {
     }
 
     if (userProfile?.preferredDropSpotId) {
-      setSelectedDropSpotId(userProfile.preferredDropSpotId);
+      setSelectedDropSpotId(
+        userProfile.preferredDropSpotId
+      );
     }
   }, [
     userProfile,
@@ -81,13 +97,15 @@ function MainLayout() {
   ]);
 
   /*
-   * If another part of the application asks App.tsx to display
-   * an active order, navigate to the normal Orders/Tracker page
-   * instead of opening a modal.
+   * If another part of the application asks App.tsx
+   * to display an active order, navigate to the normal
+   * Orders page.
    */
   useEffect(() => {
     if (activeTrackingOrderId) {
-      setSelectedTrackingOrderId(activeTrackingOrderId);
+      setSelectedTrackingOrderId(
+        activeTrackingOrderId
+      );
       setCustomerView('orders');
       setActiveTrackingOrderId(null);
     }
@@ -97,19 +115,22 @@ function MainLayout() {
   ]);
 
   /*
-   * Find the current customer's active order.
+   * Open the customer's active order.
    *
    * Existing matching rules are retained:
    * - user ID
    * - email
-   * - phone / WhatsApp
+   * - phone
+   * - WhatsApp
    */
   const handleOpenActiveTracker = () => {
     const activeUid =
-      currentUser?.uid || userProfile?.uid;
+      currentUser?.uid ||
+      userProfile?.uid;
 
     const activeEmail =
-      currentUser?.email || userProfile?.email;
+      currentUser?.email ||
+      userProfile?.email;
 
     const activePhone =
       userProfile?.whatsapp ||
@@ -121,7 +142,8 @@ function MainLayout() {
         .replace(/\D/g, '')
         .slice(-9);
 
-    const userPhoneDigits = cleanPhone(activePhone);
+    const userPhoneDigits =
+      cleanPhone(activePhone);
 
     const userOrders = orders.filter((order) => {
       if (
@@ -171,22 +193,35 @@ function MainLayout() {
       ) || userOrders[0];
 
     if (active) {
-      setSelectedTrackingOrderId(active.id);
+      setSelectedTrackingOrderId(
+        active.id
+      );
     } else {
       setSelectedTrackingOrderId(null);
     }
 
-    /*
-     * Always navigate to the Orders page.
-     * The tracker itself handles the "no order" state.
-     */
     setCustomerView('orders');
   };
 
   /*
-   * Used by the existing Spot Directory.
-   * Once a spot is selected, the user goes straight back
-   * to the customer restaurant experience.
+   * Customer page navigation helpers.
+   */
+  const handleOpenCartPage = () => {
+    setSelectedRestaurant(null);
+    setCustomerView('cart');
+  };
+
+  const handleOpenAccountPage = () => {
+    setSelectedRestaurant(null);
+    setCustomerView('account');
+  };
+
+  const handleCloseCustomerPage = () => {
+    setCustomerView('home');
+  };
+
+  /*
+   * Existing Spot Directory behavior.
    */
   const handleSelectSpotAndShop = (
     spotId: string
@@ -198,17 +233,46 @@ function MainLayout() {
   };
 
   /*
-   * Return from order tracking to the normal customer experience.
+   * Header cart behavior.
+   *
+   * Customers get the new normal Cart page.
+   * Other roles retain the old modal behavior.
    */
-  const handleCloseOrderTracker = () => {
-    setCustomerView('home');
+  const handleHeaderCart = () => {
+    if (
+      userRole === 'customer' ||
+      userRole === 'spot_explorer'
+    ) {
+      handleOpenCartPage();
+      return;
+    }
+
+    setIsCartOpen(true);
+  };
+
+  /*
+   * Header profile behavior.
+   *
+   * Customers get the new normal Account page.
+   * Admin/owner users retain the existing profile modal.
+   */
+  const handleHeaderProfile = () => {
+    if (
+      userRole === 'customer' ||
+      userRole === 'spot_explorer'
+    ) {
+      handleOpenAccountPage();
+      return;
+    }
+
+    setIsProfileModalOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-stone-100/60 text-stone-900 flex flex-col selection:bg-amber-200">
 
       <Header
-        onOpenCart={() => setIsCartOpen(true)}
+        onOpenCart={handleHeaderCart}
         onOpenSpotSelector={() =>
           setIsSpotSelectorOpen(true)
         }
@@ -221,53 +285,99 @@ function MainLayout() {
         onOpenAuth={() =>
           setIsAuthModalOpen(true)
         }
-        onOpenProfile={() =>
-          setIsProfileModalOpen(true)
+        onOpenProfile={
+          handleHeaderProfile
         }
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 pb-28 md:pb-10">
 
         {/* CUSTOMER EXPERIENCE */}
-        {userRole === 'customer' && (
+        {(userRole === 'customer' ||
+          userRole === 'spot_explorer') && (
           <>
-            {customerView === 'orders' ? (
-              /*
-               * IMPORTANT:
-               * The tracker is rendered as normal page content.
-               * It is NOT a fixed modal overlay.
-               *
-               * This allows MobileNav to remain visible at the
-               * bottom of the screen on the Orders page.
-               */
-              <OrderTrackerModal
-                orderId={selectedTrackingOrderId}
+            {/* HOME */}
+            {customerView === 'home' && (
+              <>
+                {selectedRestaurant ? (
+                  <RestaurantDetail
+                    restaurant={selectedRestaurant}
+                    onBack={() =>
+                      setSelectedRestaurant(null)
+                    }
+                    onOpenSpotSelector={() =>
+                      setIsSpotSelectorOpen(true)
+                    }
+                  />
+                ) : (
+                  <RestaurantList
+                    onSelectRestaurant={(
+                      restaurant
+                    ) => {
+                      setSelectedRestaurant(
+                        restaurant
+                      );
+                      setCustomerView('home');
+                    }}
+                    onOpenSpotSelector={() =>
+                      setIsSpotSelectorOpen(true)
+                    }
+                    onOpenAuth={() =>
+                      setIsAuthModalOpen(true)
+                    }
+                  />
+                )}
+              </>
+            )}
+
+            {/* CART */}
+            {customerView === 'cart' && (
+              <CartDrawer
                 isOpen={true}
                 embedded={true}
-                onClose={handleCloseOrderTracker}
-              />
-            ) : selectedRestaurant ? (
-              <RestaurantDetail
-                restaurant={selectedRestaurant}
-                onBack={() =>
-                  setSelectedRestaurant(null)
+                onClose={
+                  handleCloseCustomerPage
                 }
                 onOpenSpotSelector={() =>
                   setIsSpotSelectorOpen(true)
                 }
-              />
-            ) : (
-              <RestaurantList
-                onSelectRestaurant={(restaurant) => {
-                  setSelectedRestaurant(restaurant);
-                  setCustomerView('home');
+                onOpenOrderTracker={(
+                  orderId
+                ) => {
+                  setSelectedTrackingOrderId(
+                    orderId
+                  );
+                  setCustomerView('orders');
                 }}
-                onOpenSpotSelector={() =>
-                  setIsSpotSelectorOpen(true)
+              />
+            )}
+
+            {/* ORDERS / TRACKING */}
+            {customerView === 'orders' && (
+              <OrderTrackerModal
+                orderId={
+                  selectedTrackingOrderId
                 }
-                onOpenAuth={() =>
-                  setIsAuthModalOpen(true)
+                isOpen={true}
+                embedded={true}
+                onClose={
+                  handleCloseCustomerPage
                 }
+              />
+            )}
+
+            {/* ACCOUNT */}
+            {customerView === 'account' && (
+              <ProfileModal
+                isOpen={true}
+                embedded={true}
+                onClose={
+                  handleCloseCustomerPage
+                }
+                onOpenAdminSpots={() => {
+                  setCustomerView('home');
+                  setUserRole('admin');
+                }}
               />
             )}
           </>
@@ -286,12 +396,13 @@ function MainLayout() {
           <AdminDashboard
             onBackToCustomer={() => {
               setUserRole('customer');
+              setSelectedRestaurant(null);
               setCustomerView('home');
             }}
           />
         )}
 
-        {/* EXISTING SPOT DIRECTORY */}
+        {/* SPOT DIRECTORY */}
         {userRole === 'spot_explorer' && (
           <SpotDirectory
             onSelectSpotAndShop={
@@ -302,13 +413,15 @@ function MainLayout() {
       </main>
 
       {/*
-       * IMPORTANT:
-       * MobileNav is deliberately outside the customer-view
-       * conditional. It therefore stays mounted while the user
-       * moves between Home, Restaurant, Orders and Account.
-       */}
+       * CUSTOMER BOTTOM NAV
+       *
+       * It stays mounted while moving between:
+       * Home → Cart → Orders → Account.
+       */
       <MobileNav
-        onOpenCart={() => setIsCartOpen(true)}
+        onOpenCart={
+          handleOpenCartPage
+        }
         onOpenActiveTracker={
           handleOpenActiveTracker
         }
@@ -318,19 +431,26 @@ function MainLayout() {
         onOpenAuth={() =>
           setIsAuthModalOpen(true)
         }
-        onOpenProfile={() =>
-          setIsProfileModalOpen(true)
+        onOpenProfile={
+          handleOpenAccountPage
+        }
+        activeCustomerView={
+          customerView
+        }
+        onOpenAccount={
+          handleOpenAccountPage
         }
         onOpenAdminSpots={() =>
           setUserRole('admin')
         }
-        ownerActiveTab={ownerActiveTab}
+        ownerActiveTab={
+          ownerActiveTab
+        }
         setOwnerActiveTab={
           setOwnerActiveTab
         }
       />
 
-      {/* Minimal footer */}
       <footer className="mt-10 mb-20 md:mb-0 bg-white border-t border-stone-200 py-5 text-xs text-stone-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center">
           <div className="flex items-center gap-2">
@@ -345,28 +465,35 @@ function MainLayout() {
         </div>
       </footer>
 
-      {/* CART */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() =>
-          setIsCartOpen(false)
-        }
-        onOpenSpotSelector={() =>
-          setIsSpotSelectorOpen(true)
-        }
-        onOpenOrderTracker={(orderId) => {
-          /*
-           * After an order is placed from the cart,
-           * navigate to the normal Orders page instead
-           * of opening the tracker as a popup.
-           */
-          setSelectedTrackingOrderId(orderId);
-          setIsCartOpen(false);
-          setCustomerView('orders');
-        }}
-      />
+      {/*
+       * Legacy cart modal.
+       *
+       * This remains available for non-customer contexts.
+       * Customer navigation uses the embedded Cart page above.
+       */}
+      {userRole !== 'customer' &&
+        userRole !== 'spot_explorer' && (
+          <CartDrawer
+            isOpen={isCartOpen}
+            onClose={() =>
+              setIsCartOpen(false)
+            }
+            onOpenSpotSelector={() =>
+              setIsSpotSelectorOpen(true)
+            }
+            onOpenOrderTracker={(
+              orderId
+            ) => {
+              setSelectedTrackingOrderId(
+                orderId
+              );
+              setIsCartOpen(false);
+              setUserRole('customer');
+              setCustomerView('orders');
+            }}
+          />
+        )}
 
-      {/* PICKUP SPOT */}
       <SpotSelectorModal
         isOpen={isSpotSelectorOpen}
         onClose={() =>
@@ -374,11 +501,6 @@ function MainLayout() {
         }
       />
 
-      {/*
-       * INTERNAL TIME SIMULATOR
-       * Still available to the application internally,
-       * but not exposed in the normal customer navigation.
-       */}
       <TimeSimulatorModal
         isOpen={isTimeSimulatorOpen}
         onClose={() =>
@@ -386,16 +508,6 @@ function MainLayout() {
         }
       />
 
-      {/*
-       * ORDER TRACKER
-       *
-       * No separate modal is mounted here anymore.
-       *
-       * The tracker is rendered inside the normal customer
-       * page above, which keeps the bottom navigation visible.
-       */}
-
-      {/* AUTH */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() =>
@@ -403,17 +515,25 @@ function MainLayout() {
         }
       />
 
-      {/* PROFILE */}
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() =>
-          setIsProfileModalOpen(false)
-        }
-        onOpenAdminSpots={() => {
-          setIsProfileModalOpen(false);
-          setUserRole('admin');
-        }}
-      />
+      {/*
+       * Legacy profile modal for admin/owner contexts.
+       *
+       * Customer accounts use the normal Account page above.
+       */}
+      {userRole !== 'customer' &&
+        userRole !== 'spot_explorer' &&
+        isProfileModalOpen && (
+          <ProfileModal
+            isOpen={true}
+            onClose={() =>
+              setIsProfileModalOpen(false)
+            }
+            onOpenAdminSpots={() => {
+              setIsProfileModalOpen(false);
+              setUserRole('admin');
+            }}
+          />
+        )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 interface MobileNavProps {
+  onOpenHome: () => void;
   onOpenCart: () => void;
   onOpenActiveTracker: () => void;
   onOpenSpotSelector: () => void;
@@ -47,6 +48,7 @@ interface MobileNavProps {
 export const MobileNav: React.FC<
   MobileNavProps
 > = ({
+  onOpenHome,
   onOpenCart,
   onOpenActiveTracker,
   onOpenSpotSelector,
@@ -159,11 +161,9 @@ export const MobileNav: React.FC<
   /*
    * CUSTOMER NAVIGATION
    *
-   * Customer navigation is:
-   *
    * Home | Cart | Track order | Account
    *
-   * The active state always follows the
+   * The active button always follows the
    * actual customer page.
    */
   if (
@@ -182,28 +182,7 @@ export const MobileNav: React.FC<
           <button
             id="mobile-nav-home"
             type="button"
-            onClick={() => {
-              /*
-               * Home is represented by the current
-               * customer navigation state.
-               *
-               * App.tsx owns the actual Home navigation,
-               * so this button uses the existing
-               * storefront behavior through the
-               * restaurant/list context.
-               */
-              if (activeCustomerView === 'home') {
-                return;
-              }
-
-              onOpenCart();
-
-              /*
-               * The Home button itself is intentionally
-               * non-destructive here. App.tsx should own
-               * the actual customer-view transition.
-               */
-            }}
+            onClick={onOpenHome}
             className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl active:scale-95 transition min-h-[52px] ${
               activeCustomerView === 'home'
                 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
@@ -432,9 +411,7 @@ export const MobileNav: React.FC<
           id="mobile-nav-owner-menu"
           type="button"
           onClick={() =>
-            setOwnerActiveTab?.(
-              'menu'
-            )
+            setOwnerActiveTab?.('menu')
           }
           className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition min-h-[48px] ${
             ownerActiveTab === 'menu'
@@ -455,9 +432,7 @@ export const MobileNav: React.FC<
           id="mobile-nav-owner-orders"
           type="button"
           onClick={() =>
-            setOwnerActiveTab?.(
-              'orders'
-            )
+            setOwnerActiveTab?.('orders')
           }
           className={`relative flex flex-col items-center justify-center py-2 px-3 rounded-xl transition min-h-[48px] ${
             ownerActiveTab === 'orders'
@@ -486,9 +461,7 @@ export const MobileNav: React.FC<
           id="mobile-nav-owner-settings"
           type="button"
           onClick={() =>
-            setOwnerActiveTab?.(
-              'settings'
-            )
+            setOwnerActiveTab?.('settings')
           }
           className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition min-h-[48px] ${
             ownerActiveTab === 'settings'

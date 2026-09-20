@@ -18,6 +18,13 @@ interface MobileNavProps {
   onOpenSpotSelector: () => void;
   onOpenAuth: () => void;
   onOpenProfile?: () => void;
+  onOpenAccount?: () => void;
+
+  activeCustomerView?:
+    | 'home'
+    | 'cart'
+    | 'orders'
+    | 'account';
 
   ownerActiveTab?:
     | 'analytics'
@@ -44,6 +51,8 @@ export const MobileNav: React.FC<
   onOpenSpotSelector,
   onOpenAuth,
   onOpenProfile,
+  onOpenAccount,
+  activeCustomerView = 'home',
   ownerActiveTab = 'menu',
   setOwnerActiveTab,
   onOpenAdminSpots,
@@ -53,8 +62,6 @@ export const MobileNav: React.FC<
     setUserRole,
     cart,
     orders,
-    hasOwnerPrivilege,
-    hasAdminPrivilege,
   } = useApp();
 
   const {
@@ -73,12 +80,6 @@ export const MobileNav: React.FC<
   const activeEmail =
     currentUser?.email ||
     userProfile?.email;
-
-  const canOwner =
-    hasOwnerPrivilege(activeEmail);
-
-  const canAdmin =
-    hasAdminPrivilege(activeEmail);
 
   const activePhone =
     userProfile?.whatsapp ||
@@ -100,16 +101,6 @@ export const MobileNav: React.FC<
       0
     );
 
-  /*
-   * Count the customer's currently active orders.
-   *
-   * This count is only used for the notification badge.
-   * IMPORTANT:
-   * The Track order button itself is NOT disabled when
-   * this count is zero. This allows the customer to press
-   * it and receive the appropriate result instead of
-   * having a dead-looking button.
-   */
   const activeOrdersCount =
     orders.filter((order) => {
       if (
@@ -167,13 +158,8 @@ export const MobileNav: React.FC<
   /*
    * CUSTOMER NAVIGATION
    *
-   * Customers only need:
-   * 1. Cart
-   * 2. Track order
-   * 3. Account
-   *
-   * Restaurant search remains on the main page.
-   * Pickup spot remains in the header/search area.
+   * The orange active state now follows the actual
+   * page instead of remaining permanently on Cart.
    */
   if (
     userRole === 'customer' ||
@@ -191,18 +177,26 @@ export const MobileNav: React.FC<
           <button
             id="mobile-nav-cart"
             onClick={onOpenCart}
-            className="relative flex flex-col items-center justify-center py-2 px-5 rounded-2xl bg-amber-500 text-white shadow-md shadow-amber-500/20 active:scale-95 transition min-h-[52px]"
+            className={`relative flex flex-col items-center justify-center py-2 px-5 rounded-2xl active:scale-95 transition min-h-[52px] ${
+              activeCustomerView === 'cart'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                : 'text-stone-600 hover:bg-stone-100'
+            }`}
           >
             <div className="relative">
-
               <ShoppingBag className="h-5 w-5" />
 
               {cartItemCount > 0 && (
-                <span className="absolute -top-2 -right-2 h-5 min-w-5 px-1 rounded-full bg-stone-900 text-white text-[10px] font-black flex items-center justify-center border-2 border-amber-500">
+                <span
+                  className={`absolute -top-2 -right-2 h-5 min-w-5 px-1 rounded-full text-[10px] font-black flex items-center justify-center border-2 ${
+                    activeCustomerView === 'cart'
+                      ? 'bg-stone-900 text-white border-amber-500'
+                      : 'bg-amber-500 text-white border-white'
+                  }`}
+                >
                   {cartItemCount}
                 </span>
               )}
-
             </div>
 
             <span className="text-[10px] font-black mt-1">
@@ -210,22 +204,11 @@ export const MobileNav: React.FC<
             </span>
           </button>
 
-
           {/* TRACK ORDER */}
 
           <button
             id="mobile-nav-orders"
             onClick={() => {
-              /*
-               * Do NOT disable this button when there are
-               * no active orders.
-               *
-               * If the customer is not authenticated,
-               * take them to authentication.
-               *
-               * If authenticated, let App.tsx determine
-               * whether there is an order to track.
-               */
               if (!isAuthenticated) {
                 onOpenAuth();
                 return;
@@ -233,22 +216,28 @@ export const MobileNav: React.FC<
 
               onOpenActiveTracker();
             }}
-            className={`relative flex flex-col items-center justify-center py-2 px-5 rounded-2xl transition min-h-[52px] ${
-              activeOrdersCount > 0
-                ? 'text-stone-900 hover:bg-stone-100 active:scale-95'
-                : 'text-stone-500 hover:bg-stone-100 active:scale-95'
+            className={`relative flex flex-col items-center justify-center py-2 px-5 rounded-2xl active:scale-95 transition min-h-[52px] ${
+              activeCustomerView === 'orders'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                : activeOrdersCount > 0
+                ? 'text-stone-900 hover:bg-stone-100'
+                : 'text-stone-500 hover:bg-stone-100'
             }`}
           >
             <div className="relative">
-
               <Layers className="h-5 w-5" />
 
               {activeOrdersCount > 0 && (
-                <span className="absolute -top-2 -right-2 h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">
+                <span
+                  className={`absolute -top-2 -right-2 h-4 min-w-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center ${
+                    activeCustomerView === 'orders'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-emerald-500 text-white'
+                  }`}
+                >
                   {activeOrdersCount}
                 </span>
               )}
-
             </div>
 
             <span className="text-[10px] font-bold mt-1">
@@ -256,22 +245,27 @@ export const MobileNav: React.FC<
             </span>
           </button>
 
-
           {/* ACCOUNT */}
 
           <button
             id="mobile-nav-account"
             onClick={() => {
-              if (
-                isAuthenticated &&
-                onOpenProfile
-              ) {
-                onOpenProfile();
-              } else {
+              if (!isAuthenticated) {
                 onOpenAuth();
+                return;
+              }
+
+              if (onOpenAccount) {
+                onOpenAccount();
+              } else if (onOpenProfile) {
+                onOpenProfile();
               }
             }}
-            className="flex flex-col items-center justify-center py-2 px-5 rounded-2xl text-stone-600 hover:bg-stone-100 active:scale-95 transition min-h-[52px]"
+            className={`flex flex-col items-center justify-center py-2 px-5 rounded-2xl active:scale-95 transition min-h-[52px] ${
+              activeCustomerView === 'account'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                : 'text-stone-600 hover:bg-stone-100'
+            }`}
           >
             {isAuthenticated ? (
               <>
@@ -283,7 +277,11 @@ export const MobileNav: React.FC<
                       userProfile.photoURL
                     }
                     alt="Profile"
-                    className="h-5 w-5 rounded-full object-cover"
+                    className={`h-5 w-5 rounded-full object-cover ${
+                      activeCustomerView === 'account'
+                        ? 'ring-2 ring-white'
+                        : ''
+                    }`}
                     referrerPolicy="no-referrer"
                   />
                 ) : (
@@ -310,12 +308,8 @@ export const MobileNav: React.FC<
     );
   }
 
-
   /*
    * ADMIN NAVIGATION
-   *
-   * Admin functionality remains separate from
-   * the customer navigation.
    */
   if (userRole === 'admin') {
     return (
@@ -324,8 +318,6 @@ export const MobileNav: React.FC<
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200 px-3 py-2 shadow-xl safe-area-bottom"
       >
         <div className="flex items-center justify-around gap-1">
-
-          {/* ADMIN */}
 
           <button
             onClick={() =>
@@ -340,9 +332,6 @@ export const MobileNav: React.FC<
             </span>
           </button>
 
-
-          {/* SETTINGS */}
-
           <button
             onClick={() =>
               onOpenProfile?.()
@@ -355,9 +344,6 @@ export const MobileNav: React.FC<
               Settings
             </span>
           </button>
-
-
-          {/* STOREFRONT */}
 
           <button
             onClick={() =>
@@ -377,12 +363,8 @@ export const MobileNav: React.FC<
     );
   }
 
-
   /*
    * RESTAURANT OWNER NAVIGATION
-   *
-   * Owner functionality remains separate from
-   * customer navigation.
    */
   return (
     <nav
@@ -412,7 +394,6 @@ export const MobileNav: React.FC<
             Menu
           </span>
         </button>
-
 
         {/* ORDERS */}
 
@@ -444,7 +425,6 @@ export const MobileNav: React.FC<
           )}
         </button>
 
-
         {/* SETTINGS */}
 
         <button
@@ -467,8 +447,7 @@ export const MobileNav: React.FC<
           </span>
         </button>
 
-
-        {/* CUSTOMER STOREFRONT */}
+        {/* STOREFRONT */}
 
         <button
           id="mobile-nav-switch-to-customer"

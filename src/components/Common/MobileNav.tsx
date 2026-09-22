@@ -76,26 +76,10 @@ export const MobileNav: React.FC<
     currentUser || userProfile
   );
 
-  const activeUid =
-    currentUser?.uid ||
-    userProfile?.uid;
-
-  const activeEmail =
-    currentUser?.email ||
-    userProfile?.email;
-
-  const activePhone =
-    userProfile?.whatsapp ||
-    userProfile?.phone ||
-    '';
-
-  const cleanPhone = (value?: string) =>
-    (value || '')
-      .replace(/\D/g, '')
-      .slice(-9);
-
-  const userPhoneDigits =
-    cleanPhone(activePhone);
+  // Order tracking is not a permanent bottom-nav tab.
+  // It lives under cart / post-checkout (and header when needed).
+  void onOpenActiveTracker;
+  void onOpenSpotSelector;
 
   const cartItemCount =
     cart.reduce(
@@ -104,81 +88,27 @@ export const MobileNav: React.FC<
       0
     );
 
-  const activeOrdersCount =
-    orders.filter((order) => {
-      if (
-        order.status === 'collected' ||
-        order.status === 'cancelled'
-      ) {
-        return false;
-      }
-
-      if (!isAuthenticated) {
-        return false;
-      }
-
-      if (
-        activeUid &&
-        order.userId &&
-        order.userId === activeUid
-      ) {
-        return true;
-      }
-
-      if (
-        activeEmail &&
-        order.customerEmail &&
-        order.customerEmail.toLowerCase() ===
-          activeEmail.toLowerCase()
-      ) {
-        return true;
-      }
-
-      if (
-        userPhoneDigits &&
-        userPhoneDigits.length >= 7
-      ) {
-        if (
-          cleanPhone(
-            order.customerPhone
-          ) === userPhoneDigits
-        ) {
-          return true;
-        }
-
-        if (
-          cleanPhone(
-            order.customerWhatsapp
-          ) === userPhoneDigits
-        ) {
-          return true;
-        }
-      }
-
-      return false;
-    }).length;
-
   /*
    * CUSTOMER NAVIGATION
-   *
-   * Home | Cart | Track order | Account
-   *
-   * The active button always follows the
-   * actual customer page.
+   * Home | Cart | Profile
    */
   if (
     userRole === 'customer' ||
     userRole === 'spot_explorer'
   ) {
+    // Tracker opened from checkout → keep Cart highlighted
+    const isCartRelated =
+      activeCustomerView === 'cart' ||
+      activeCustomerView === 'orders';
+
     return (
       <nav
         id="mobile-bottom-nav"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200 px-3 py-2 shadow-xl safe-area-bottom"
       >
-        <div className="grid grid-cols-4 items-center gap-1 max-w-md mx-auto">
+        <div className="grid grid-cols-3 items-center gap-1 max-w-md mx-auto">
 
           {/* HOME */}
-
           <button
             id="mobile-nav-home"
             type="button"
@@ -190,20 +120,18 @@ export const MobileNav: React.FC<
             }`}
           >
             <Home className="h-5 w-5" />
-
             <span className="text-[10px] font-bold mt-1">
               Home
             </span>
           </button>
 
           {/* CART */}
-
           <button
             id="mobile-nav-cart"
             type="button"
             onClick={onOpenCart}
             className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl active:scale-95 transition min-h-[52px] ${
-              activeCustomerView === 'cart'
+              isCartRelated
                 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
                 : 'text-stone-600 hover:bg-stone-100'
             }`}
@@ -214,7 +142,7 @@ export const MobileNav: React.FC<
               {cartItemCount > 0 && (
                 <span
                   className={`absolute -top-2 -right-2 h-5 min-w-5 px-1 rounded-full text-[10px] font-black flex items-center justify-center border-2 ${
-                    activeCustomerView === 'cart'
+                    isCartRelated
                       ? 'bg-stone-900 text-white border-amber-500'
                       : 'bg-amber-500 text-white border-white'
                   }`}
@@ -229,52 +157,9 @@ export const MobileNav: React.FC<
             </span>
           </button>
 
-          {/* TRACK ORDER */}
-
+          {/* PROFILE */}
           <button
-            id="mobile-nav-orders"
-            type="button"
-            onClick={() => {
-              if (!isAuthenticated) {
-                onOpenAuth();
-                return;
-              }
-
-              onOpenActiveTracker();
-            }}
-            className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl active:scale-95 transition min-h-[52px] ${
-              activeCustomerView === 'orders'
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
-                : activeOrdersCount > 0
-                ? 'text-stone-900 hover:bg-stone-100'
-                : 'text-stone-500 hover:bg-stone-100'
-            }`}
-          >
-            <div className="relative">
-              <Layers className="h-5 w-5" />
-
-              {activeOrdersCount > 0 && (
-                <span
-                  className={`absolute -top-2 -right-2 h-4 min-w-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center ${
-                    activeCustomerView === 'orders'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-emerald-500 text-white'
-                  }`}
-                >
-                  {activeOrdersCount}
-                </span>
-              )}
-            </div>
-
-            <span className="text-[10px] font-bold mt-1 whitespace-nowrap">
-              Track order
-            </span>
-          </button>
-
-          {/* ACCOUNT */}
-
-          <button
-            id="mobile-nav-account"
+            id="mobile-nav-profile"
             type="button"
             onClick={() => {
               if (!isAuthenticated) {
@@ -316,13 +201,12 @@ export const MobileNav: React.FC<
                 )}
 
                 <span className="text-[10px] font-bold mt-1">
-                  Account
+                  Profile
                 </span>
               </>
             ) : (
               <>
                 <User className="h-5 w-5" />
-
                 <span className="text-[10px] font-bold mt-1">
                   Sign in
                 </span>
@@ -335,10 +219,7 @@ export const MobileNav: React.FC<
     );
   }
 
-  /*
-   * ADMIN NAVIGATION
-   */
-
+  /* ADMIN — unchanged */
   if (userRole === 'admin') {
     return (
       <nav
@@ -346,73 +227,48 @@ export const MobileNav: React.FC<
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200 px-3 py-2 shadow-xl safe-area-bottom"
       >
         <div className="flex items-center justify-around gap-1">
-
           <button
             type="button"
-            onClick={() =>
-              onOpenAdminSpots?.()
-            }
+            onClick={() => onOpenAdminSpots?.()}
             className="flex flex-col items-center justify-center py-2 px-3 rounded-xl text-stone-800 min-h-[48px]"
           >
             <Shield className="h-5 w-5 text-stone-800" />
-
-            <span className="text-[10px] mt-1 font-semibold">
-              Admin
-            </span>
+            <span className="text-[10px] mt-1 font-semibold">Admin</span>
           </button>
 
           <button
             type="button"
-            onClick={() =>
-              onOpenProfile?.()
-            }
+            onClick={() => onOpenProfile?.()}
             className="flex flex-col items-center justify-center py-2 px-3 rounded-xl text-stone-700 min-h-[48px]"
           >
             <Settings className="h-5 w-5" />
-
-            <span className="text-[10px] mt-1 font-semibold">
-              Settings
-            </span>
+            <span className="text-[10px] mt-1 font-semibold">Settings</span>
           </button>
 
           <button
             type="button"
-            onClick={() =>
-              setUserRole('customer')
-            }
+            onClick={() => setUserRole('customer')}
             className="flex flex-col items-center justify-center py-2 px-3 rounded-xl text-amber-600 min-h-[48px]"
           >
             <ArrowLeftRight className="h-5 w-5" />
-
-            <span className="text-[10px] mt-1 font-bold">
-              Storefront
-            </span>
+            <span className="text-[10px] mt-1 font-bold">Storefront</span>
           </button>
-
         </div>
       </nav>
     );
   }
 
-  /*
-   * RESTAURANT OWNER NAVIGATION
-   */
-
+  /* OWNER — unchanged */
   return (
     <nav
       id="mobile-bottom-nav"
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200 px-3 py-2 shadow-xl safe-area-bottom"
     >
       <div className="flex items-center justify-around">
-
-        {/* MENU */}
-
         <button
           id="mobile-nav-owner-menu"
           type="button"
-          onClick={() =>
-            setOwnerActiveTab?.('menu')
-          }
+          onClick={() => setOwnerActiveTab?.('menu')}
           className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition min-h-[48px] ${
             ownerActiveTab === 'menu'
               ? 'text-amber-600 font-bold'
@@ -420,20 +276,13 @@ export const MobileNav: React.FC<
           }`}
         >
           <UtensilsCrossed className="h-5 w-5" />
-
-          <span className="text-[10px] mt-1">
-            Menu
-          </span>
+          <span className="text-[10px] mt-1">Menu</span>
         </button>
-
-        {/* ORDERS */}
 
         <button
           id="mobile-nav-owner-orders"
           type="button"
-          onClick={() =>
-            setOwnerActiveTab?.('orders')
-          }
+          onClick={() => setOwnerActiveTab?.('orders')}
           className={`relative flex flex-col items-center justify-center py-2 px-3 rounded-xl transition min-h-[48px] ${
             ownerActiveTab === 'orders'
               ? 'text-amber-600 font-bold'
@@ -441,11 +290,7 @@ export const MobileNav: React.FC<
           }`}
         >
           <Layers className="h-5 w-5" />
-
-          <span className="text-[10px] mt-1">
-            Orders
-          </span>
-
+          <span className="text-[10px] mt-1">Orders</span>
           {orders.filter(
             (order) =>
               order.status === 'placed' ||
@@ -455,14 +300,10 @@ export const MobileNav: React.FC<
           )}
         </button>
 
-        {/* SETTINGS */}
-
         <button
           id="mobile-nav-owner-settings"
           type="button"
-          onClick={() =>
-            setOwnerActiveTab?.('settings')
-          }
+          onClick={() => setOwnerActiveTab?.('settings')}
           className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition min-h-[48px] ${
             ownerActiveTab === 'settings'
               ? 'text-amber-600 font-bold'
@@ -470,29 +311,18 @@ export const MobileNav: React.FC<
           }`}
         >
           <Settings className="h-5 w-5" />
-
-          <span className="text-[10px] mt-1">
-            Settings
-          </span>
+          <span className="text-[10px] mt-1">Settings</span>
         </button>
-
-        {/* STOREFRONT */}
 
         <button
           id="mobile-nav-switch-to-customer"
           type="button"
-          onClick={() =>
-            setUserRole('customer')
-          }
+          onClick={() => setUserRole('customer')}
           className="flex flex-col items-center justify-center py-2 px-3 rounded-xl text-stone-600 min-h-[48px]"
         >
           <ArrowLeftRight className="h-5 w-5" />
-
-          <span className="text-[10px] mt-1 font-medium">
-            Storefront
-          </span>
+          <span className="text-[10px] mt-1 font-medium">Storefront</span>
         </button>
-
       </div>
     </nav>
   );

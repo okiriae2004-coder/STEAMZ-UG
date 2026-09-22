@@ -61,28 +61,23 @@ function MainLayout() {
   /*
    * Customer navigation.
    *
+   * Bottom nav is only: Home | Cart | Profile
+   *
    * home    = restaurant list / restaurant detail
-   * cart    = normal cart page
-   * orders  = normal order tracking page
-   * account = normal account/profile page
+   * cart    = cart page
+   * orders  = order tracker (opened from cart after checkout, or header)
+   * account = profile page
    */
   const [customerView, setCustomerView] =
     useState<CustomerView>('home');
 
   /*
    * Remembers the customer page before opening
-   * Cart, Orders or Account.
-   *
-   * This makes Back return to the page the customer
-   * actually came from instead of always returning Home.
+   * Cart, Orders or Account so Back returns correctly.
    */
   const [previousCustomerView, setPreviousCustomerView] =
     useState<CustomerView>('home');
 
-  /*
-   * Navigate between normal customer pages while
-   * remembering the current page.
-   */
   const navigateCustomerView = (
     nextView: CustomerView
   ) => {
@@ -97,10 +92,6 @@ function MainLayout() {
     'analytics' | 'orders' | 'menu' | 'settings'
   >('menu');
 
-  /*
-   * Keep authentication/profile state synchronized
-   * with the application role.
-   */
   useEffect(() => {
     if (userProfile?.role) {
       setUserRole(userProfile.role);
@@ -118,9 +109,9 @@ function MainLayout() {
   ]);
 
   /*
-   * If another part of the application asks App.tsx
-   * to display an active order, navigate to the normal
-   * Orders page while remembering the current page.
+   * External request to show an active order
+   * (e.g. from header) — opens tracker page,
+   * not a bottom-nav tab.
    */
   useEffect(() => {
     if (activeTrackingOrderId) {
@@ -142,15 +133,6 @@ function MainLayout() {
     setActiveTrackingOrderId,
   ]);
 
-  /*
-   * Open the customer's active order.
-   *
-   * Existing matching rules are retained:
-   * - user ID
-   * - email
-   * - phone
-   * - WhatsApp
-   */
   const handleOpenActiveTracker = () => {
     const activeUid =
       currentUser?.uid ||
@@ -235,20 +217,11 @@ function MainLayout() {
     setCustomerView('orders');
   };
 
-  /*
-   * Home navigation.
-   *
-   * Home is a root customer destination, so pressing
-   * Home should also reset the remembered back destination.
-   */
   const handleOpenHome = () => {
     setCustomerView('home');
     setPreviousCustomerView('home');
   };
 
-  /*
-   * Customer page navigation helpers.
-   */
   const handleOpenCartPage = () => {
     navigateCustomerView('cart');
   };
@@ -257,17 +230,10 @@ function MainLayout() {
     navigateCustomerView('account');
   };
 
-  /*
-   * Close the current customer page and return to
-   * the page the customer came from.
-   */
   const handleCloseCustomerPage = () => {
     setCustomerView(previousCustomerView);
   };
 
-  /*
-   * Existing Spot Directory behavior.
-   */
   const handleSelectSpotAndShop = (
     spotId: string
   ) => {
@@ -278,12 +244,6 @@ function MainLayout() {
     setPreviousCustomerView('home');
   };
 
-  /*
-   * Header cart behavior.
-   *
-   * Customers get the new normal Cart page.
-   * Other roles retain the old modal behavior.
-   */
   const handleHeaderCart = () => {
     if (
       userRole === 'customer' ||
@@ -296,12 +256,6 @@ function MainLayout() {
     setIsCartOpen(true);
   };
 
-  /*
-   * Header profile behavior.
-   *
-   * Customers get the new normal Account page.
-   * Admin/owner users retain the existing profile modal.
-   */
   const handleHeaderProfile = () => {
     if (
       userRole === 'customer' ||
@@ -343,7 +297,6 @@ function MainLayout() {
           userRole === 'spot_explorer') && (
           <>
 
-            {/* HOME */}
             {customerView === 'home' && (
               <>
                 {selectedRestaurant ? (
@@ -377,7 +330,6 @@ function MainLayout() {
               </>
             )}
 
-            {/* CART */}
             {customerView === 'cart' && (
               <CartDrawer
                 isOpen={true}
@@ -404,7 +356,7 @@ function MainLayout() {
               />
             )}
 
-            {/* ORDERS / TRACKING */}
+            {/* Order tracker — from cart after checkout, or header */}
             {customerView === 'orders' && (
               <OrderTrackerModal
                 orderId={
@@ -418,7 +370,6 @@ function MainLayout() {
               />
             )}
 
-            {/* ACCOUNT */}
             {customerView === 'account' && (
               <ProfileModal
                 isOpen={true}
@@ -437,7 +388,6 @@ function MainLayout() {
           </>
         )}
 
-        {/* RESTAURANT OWNER EXPERIENCE */}
         {userRole === 'owner' && (
           <OwnerDashboard
             activeTab={ownerActiveTab}
@@ -445,7 +395,6 @@ function MainLayout() {
           />
         )}
 
-        {/* ADMIN EXPERIENCE */}
         {userRole === 'admin' && (
           <AdminDashboard
             onBackToCustomer={() => {
@@ -457,7 +406,6 @@ function MainLayout() {
           />
         )}
 
-        {/* SPOT DIRECTORY */}
         {userRole === 'spot_explorer' && (
           <SpotDirectory
             onSelectSpotAndShop={
@@ -470,10 +418,8 @@ function MainLayout() {
 
       {/*
        * CUSTOMER BOTTOM NAV
-       *
-       * Home | Cart | Track order | Account
-       *
-       * The active item follows customerView.
+       * Home | Cart | Profile
+       * Order tracking is under cart (post-checkout), not a nav tab.
        */}
       <MobileNav
         onOpenHome={
@@ -525,12 +471,6 @@ function MainLayout() {
         </div>
       </footer>
 
-      {/*
-       * Legacy cart modal.
-       *
-       * This remains available for non-customer contexts.
-       * Customer navigation uses the embedded Cart page above.
-       */}
       {userRole !== 'customer' &&
         userRole !== 'spot_explorer' && (
           <CartDrawer
@@ -581,11 +521,6 @@ function MainLayout() {
         }
       />
 
-      {/*
-       * Legacy profile modal for admin/owner contexts.
-       *
-       * Customer accounts use the normal Account page above.
-       */}
       {userRole !== 'customer' &&
         userRole !== 'spot_explorer' &&
         isProfileModalOpen && (
